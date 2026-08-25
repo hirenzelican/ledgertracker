@@ -27,6 +27,7 @@ or deleting history can never leave a stale total behind.
 - [Tests](#tests)
 - [Production build](#production-build)
 - [Cloudflare deployment](#cloudflare-deployment)
+- [Vercel deployment](#vercel-deployment)
 - [Installing on Android](#installing-on-android)
 - [Backup and restore](#backup-and-restore)
 - [Project structure](#project-structure)
@@ -212,6 +213,35 @@ npx wrangler pages deploy out          # or: npm run deploy
 
 Finally, add the deployed origin to Supabase's redirect allow-list
 (**Authentication → URL Configuration**).
+
+## Vercel deployment
+
+The static export deploys to Vercel unchanged - no config edits, no adapter.
+
+### Connect the repository
+
+1. [vercel.com/new](https://vercel.com/new) - import `ledgertracker`.
+2. Vercel detects Next.js on its own; leave the build settings alone.
+3. Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` for Production,
+   Preview and Development **before the first build** - they are compiled into the
+   bundle, so a change needs a redeploy.
+4. Deploy.
+
+### Or from the command line
+
+```bash
+npx vercel            # preview deployment
+npx vercel --prod     # production
+```
+
+`vercel.json` carries the same security headers as the Cloudflare `_headers` file
+(Vercel ignores `_headers`, and Cloudflare ignores `vercel.json`, so both hosts stay
+covered by keeping both files).
+
+Afterwards add the deployed origin to Supabase's redirect allow-list
+(**Authentication → URL Configuration**). Preview deployments get a new URL each time,
+so add a wildcard such as `https://*-<your-vercel-scope>.vercel.app/**` if you want
+magic links to work from previews too.
 
 ## Installing on Android
 
