@@ -183,7 +183,9 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <ConnectionCheck />
+        {/* Only after something has gone wrong: the check is worth nothing on a normal
+            sign-in, and a permanent panel would just be noise on a screen seen daily. */}
+        {error ? <ConnectionCheck /> : null}
       </main>
     </>
   );
