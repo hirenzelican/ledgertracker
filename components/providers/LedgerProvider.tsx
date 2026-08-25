@@ -48,7 +48,17 @@ import type {
 
 export type MutationResult =
   | { ok: true; transaction: Transaction }
-  | { ok: false; message: string };
+  /**
+   * `overridable` marks a warning rather than a refusal: the ledger ends up positive,
+   * but dips below zero part-way through its history. That is normal while back-filling
+   * old transactions out of order, so the user is allowed to insist.
+   */
+  | { ok: false; message: string; overridable?: boolean };
+
+export interface MutationOptions {
+  /** Proceed even though the balance dips below zero mid-history. */
+  allowNegativeHistory?: boolean;
+}
 
 interface LedgerContextValue {
   transactions: Transaction[];
@@ -58,8 +68,12 @@ interface LedgerContextValue {
   status: 'loading' | 'ready' | 'error';
   loadError: string | null;
   refresh: () => Promise<void>;
-  addTransaction: (input: TransactionInput) => Promise<MutationResult>;
-  editTransaction: (id: string, input: TransactionInput) => Promise<MutationResult>;
+  addTransaction: (input: TransactionInput, options?: MutationOptions) => Promise<MutationResult>;
+  editTransaction: (
+    id: string,
+    input: TransactionInput,
+    options?: MutationOptions,
+  ) => Promise<MutationResult>;
   removeTransaction: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
   importTransactions: (
     inputs: readonly TransactionInput[],
@@ -76,15 +90,16 @@ interface LedgerContextValue {
 const LedgerContext = createContext<LedgerContextValue | null>(null);
 
 /**
- * Refuses a change that would leave the ledger negative - either overall, or at some
- * point in between when a transaction is back-dated. Returns null when the change is
- * safe.
+ * Checks a change against the ledger. A final balance below zero is refused outright -
+ * you cannot hold less than none of someone else's money. A dip below zero part-way
+ * through history is only a warning: while back-filling old transactions, a return
+ * entered before the receipts that preceded it looks negative until those are added.
  */
 function rejectIfNegative(
   transactions: readonly Transaction[],
   input: TransactionInput,
   excludeId: string | undefined,
-): string | null {
+): { message: string; overridable: boolean } | null {
   const remaining = transactions.filter((transaction) => transaction.id !== excludeId);
 
   const finalBalance = projectedBalancePaise(transactions, {
@@ -92,7 +107,7 @@ function rejectIfNegative(
     include: { type: input.type, amountPaise: input.amountPaise },
   });
   const check = checkBalanceNotNegative(finalBalance, projectedBalancePaise(remaining, {}));
-  if (!check.ok) return check.message;
+  if (!check.ok) return { message: check.message, overridable: false };
 
   const negativeDate = firstNegativeBalanceDate([
     ...toLedgerEntries(remaining),
@@ -105,7 +120,10 @@ function rejectIfNegative(
     },
   ]);
   if (negativeDate !== null) {
-    return `That would make the balance negative on ${formatDisplayDate(negativeDate)}. Check the date and amount.`;
+    return {
+      message: `This makes the balance negative on ${formatDisplayDate(negativeDate)}, because nothing earlier accounts for it yet. If you are still adding older transactions, that is expected.`,
+      overridable: true,
+    };
   }
 
   return null;
@@ -165,11 +183,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   );
 
   const addTransaction = useCallback(
-    async (input: TransactionInput): Promise<MutationResult> => {
+    async (input: TransactionInput, options?: MutationOptions): Promise<MutationResult> => {
       if (!user) return { ok: false, message: 'Please sign in again to save transactions.' };
 
       const rejection = rejectIfNegative(transactions, input, undefined);
-      if (rejection !== null) return { ok: false, message: rejection };
+      if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
+        return { ok: false, message: rejection.message, overridable: rejection.overridable };
+      }
 
       try {
         const saved = await insertTransaction(input, user.id);
@@ -183,9 +203,15 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   );
 
   const editTransaction = useCallback(
-    async (id: string, input: TransactionInput): Promise<MutationResult> => {
+    async (
+      id: string,
+      input: TransactionInput,
+      options?: MutationOptions,
+    ): Promise<MutationResult> => {
       const rejection = rejectIfNegative(transactions, input, id);
-      if (rejection !== null) return { ok: false, message: rejection };
+      if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
+        return { ok: false, message: rejection.message, overridable: rejection.overridable };
+      }
 
       try {
         const saved = await updateTransactionRow(id, input);

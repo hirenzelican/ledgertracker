@@ -306,10 +306,11 @@ Decisions that are load-bearing, in case a future change threatens one of them:
   ₹1,250.50 stays exact no matter how many times it is added.
 - **Balances are always derived.** `buildRunningBalances` and `calculateTotals` recompute
   from the transaction list on every render. Nothing writes a `balance_after` column.
-- **The balance can never go negative — at any point.** Returning more than is currently
-  held is refused with the available amount, and so is a back-dated return that would
-  leave the ledger below zero somewhere in the middle of its history, even when the
-  closing balance would look fine.
+- **The balance can never go negative.** Returning more than is currently held is refused
+  outright with the available amount. A back-dated entry that leaves the ledger below zero
+  only part-way through its history is a *warning* with a "Save anyway" button, not a
+  refusal: while back-filling old transactions out of order, a return entered before its
+  earlier receipts looks negative until those are added.
 - **Ordering is total.** Transactions sort by `transaction_date`, then `created_at`, then
   `id`, so two entries on the same day never swap places between devices.
 - **Writes are confirmed before they are believed.** Local state only changes after
@@ -366,8 +367,11 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 Both are compiled in at build time, so correcting them in your host does nothing until
 you redeploy.
 
-**"That would make the balance negative on …".** The date on the transaction is earlier
-than the money it is returning. Check the date, or record the matching receipt first.
+**"This makes the balance negative on …".** A warning, not a refusal. The transaction is
+dated before the money that accounts for it. If you are back-filling old history, press
+*Save anyway* and add the earlier receipts; entering oldest first avoids it entirely. For
+a large back-fill, a JSON restore is easier - the whole history is checked at once, so
+order does not matter.
 
 **Import says the balance would go negative.** The backup, merged with what you already
 have, produces a point in history where more money is returned than was ever received.

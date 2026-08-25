@@ -47,7 +47,10 @@ export interface TransactionFormProps {
   submitLabel: string;
   /** Balance available to return, in paise, excluding the transaction being edited. */
   availableBalancePaise: number;
-  onSubmit: (input: TransactionInput) => Promise<{ ok: boolean; message?: string }>;
+  onSubmit: (
+    input: TransactionInput,
+    options?: { force?: boolean },
+  ) => Promise<{ ok: boolean; message?: string; overridable?: boolean }>;
   onCancel: () => void;
 }
 
@@ -70,6 +73,8 @@ export function TransactionForm({
   const [note, setNote] = useState(initial?.note ?? '');
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  /** Set when the save was only a warning, offering the user the last word. */
+  const [overridable, setOverridable] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const amountPaise = parseAmountInput(amount);
@@ -82,11 +87,11 @@ export function TransactionForm({
       : availableBalancePaise - amountPaise;
   }, [amountPaise, availableBalancePaise, type]);
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const submit = async (force: boolean) => {
     if (saving) return; // Guard against double submission.
 
     setFormError(null);
+    setOverridable(false);
     const result = validateTransactionForm({
       amount,
       transaction_date: date,
@@ -103,13 +108,19 @@ export function TransactionForm({
 
     setSaving(true);
     try {
-      const outcome = await onSubmit(result.value);
+      const outcome = await onSubmit(result.value, { force });
       if (!outcome.ok) {
         setFormError(outcome.message ?? 'Something went wrong. Please try again.');
+        setOverridable(outcome.overridable === true);
       }
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void submit(false);
   };
 
   return (
@@ -170,9 +181,19 @@ export function TransactionForm({
       />
 
       {formError ? (
-        <p role="alert" className="rounded-xl bg-returned-soft px-4 py-3 text-sm font-medium text-ink">
-          {formError}
-        </p>
+        <div role="alert" className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
+          <p className="font-medium">{formError}</p>
+          {overridable ? (
+            <Button
+              variant="secondary"
+              className="mt-3 w-full"
+              onClick={() => void submit(true)}
+              disabled={saving}
+            >
+              Save anyway
+            </Button>
+          ) : null}
+        </div>
       ) : null}
 
       {!online ? (

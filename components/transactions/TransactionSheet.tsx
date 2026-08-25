@@ -47,17 +47,20 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
       ? 'SAVE RECEIVED'
       : 'SAVE RETURNED';
 
-  const handleSubmit = async (input: TransactionInput) => {
+  const handleSubmit = async (input: TransactionInput, options?: { force?: boolean }) => {
     const newBalancePaise = balanceIfApplied({
       excludeId: editingId,
       include: { type: input.type, amountPaise: input.amountPaise },
     });
 
+    const mutationOptions = { allowNegativeHistory: options?.force === true };
     const result = isEdit
-      ? await editTransaction(mode.transaction.id, input)
-      : await addTransaction(input);
+      ? await editTransaction(mode.transaction.id, input, mutationOptions)
+      : await addTransaction(input, mutationOptions);
 
-    if (!result.ok) return { ok: false, message: result.message };
+    if (!result.ok) {
+      return { ok: false, message: result.message, overridable: result.overridable };
+    }
 
     showToast({
       tone: 'success',
