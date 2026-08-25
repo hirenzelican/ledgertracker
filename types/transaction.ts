@@ -13,8 +13,12 @@ export interface Transaction {
   /** ISO calendar date, `YYYY-MM-DD`. */
   transaction_date: string;
   type: TransactionType;
-  /** Rupees as a decimal string (e.g. `"1250.50"`). Never parsed with `parseFloat` for maths. */
-  amount: string;
+  /**
+   * Rupees as stored in NUMERIC(12,2). PostgREST sends this as a JSON number, while
+   * backups may carry a decimal string, so both forms are accepted; `amountToPaise` is
+   * the only thing that reads it. Never parsed with `parseFloat` for maths.
+   */
+  amount: string | number;
   method: PaymentMethod;
   note: string | null;
   created_at: string;

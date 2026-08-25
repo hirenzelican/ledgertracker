@@ -3,7 +3,7 @@
  * `Date,Type,Amount,Method,Note` with ISO dates and plain decimal amounts.
  */
 
-import { rupeeStringToPaise, paiseToExportString } from '@/lib/calculations/money';
+import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
 import { sortChronological } from '@/lib/calculations/balance';
 import type { Transaction } from '@/types/transaction';
 
@@ -27,7 +27,7 @@ export function transactionsToCsv(transactions: readonly Transaction[]): string 
     [
       transaction.transaction_date,
       transaction.type,
-      paiseToExportString(rupeeStringToPaise(transaction.amount)),
+      paiseToExportString(amountToPaise(transaction.amount)),
       transaction.method,
       csvField(transaction.note ?? ''),
     ].join(','),

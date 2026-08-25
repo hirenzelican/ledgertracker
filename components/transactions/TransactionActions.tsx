@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
-import { formatRupees, rupeeStringToPaise } from '@/lib/calculations/money';
+import { formatRupees, amountToPaise } from '@/lib/calculations/money';
 import { formatDisplayDate } from '@/lib/format/date';
 import { METHOD_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@/types/transaction';
 
@@ -30,7 +30,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
   if (!entry) return null;
 
   const { transaction } = entry;
-  const amountPaise = rupeeStringToPaise(transaction.amount);
+  const amountPaise = amountToPaise(transaction.amount);
   const typeLabel = TYPE_LABELS[transaction.type].toLowerCase();
 
   const handleDelete = async () => {

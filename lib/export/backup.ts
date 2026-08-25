@@ -7,7 +7,7 @@
  * captured by date/type/amount/method/note.
  */
 
-import { rupeeStringToPaise, paiseToExportString } from '@/lib/calculations/money';
+import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
 import { sortChronological } from '@/lib/calculations/balance';
 import type { Transaction } from '@/types/transaction';
 
@@ -40,7 +40,7 @@ export function buildBackup(transactions: readonly Transaction[], exportedAt: st
     transactions: ordered.map((transaction) => ({
       transaction_date: transaction.transaction_date,
       type: transaction.type,
-      amount: paiseToExportString(rupeeStringToPaise(transaction.amount)),
+      amount: paiseToExportString(amountToPaise(transaction.amount)),
       method: transaction.method,
       note: transaction.note,
     })),

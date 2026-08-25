@@ -27,7 +27,7 @@ import {
   type TransactionInput,
   type TransactionType,
 } from '@/types/transaction';
-import { rupeeStringToPaise } from '@/lib/calculations/money';
+import { amountToPaise } from '@/lib/calculations/money';
 
 const METHOD_CHOICES = PAYMENT_METHODS.map((method) => ({
   value: method,
@@ -199,8 +199,8 @@ export function TransactionForm({
   );
 }
 
-/** `"10000.00"` -> `"10000"`, `"1250.50"` -> `"1250.50"` for a tidy edit field. */
-function stripTrailingPaise(amount: string): string {
-  const paise = rupeeStringToPaise(amount);
+/** `10000.00` -> `"10000"`, `1250.50` -> `"1250.50"` for a tidy edit field. */
+function stripTrailingPaise(amount: string | number): string {
+  const paise = amountToPaise(amount);
   return paise % 100 === 0 ? String(paise / 100) : (paise / 100).toFixed(2);
 }

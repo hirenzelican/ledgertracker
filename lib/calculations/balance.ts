@@ -12,7 +12,7 @@ import type {
   TransactionType,
   TransactionWithBalance,
 } from '@/types/transaction';
-import { rupeeStringToPaise } from './money';
+import { amountToPaise } from './money';
 
 /** The signed effect a transaction has on the balance, in paise. */
 export function signedDeltaPaise(type: TransactionType, amountPaise: number): number {
@@ -46,7 +46,7 @@ export function buildRunningBalances(
 ): TransactionWithBalance[] {
   let balancePaise = 0;
   return sortChronological(transactions).map((transaction) => {
-    const deltaPaise = signedDeltaPaise(transaction.type, rupeeStringToPaise(transaction.amount));
+    const deltaPaise = signedDeltaPaise(transaction.type, amountToPaise(transaction.amount));
     balancePaise += deltaPaise;
     return { transaction, deltaPaise, balanceAfterPaise: balancePaise };
   });
@@ -59,7 +59,7 @@ export function calculateTotals(transactions: readonly Transaction[]): LedgerTot
   let lastTransactionDate: string | null = null;
 
   for (const transaction of transactions) {
-    const amountPaise = rupeeStringToPaise(transaction.amount);
+    const amountPaise = amountToPaise(transaction.amount);
     if (transaction.type === 'RECEIVED') {
       receivedPaise += amountPaise;
     } else {
@@ -101,7 +101,7 @@ export function projectedBalancePaise(
   let balancePaise = 0;
   for (const transaction of transactions) {
     if (change.excludeId !== undefined && transaction.id === change.excludeId) continue;
-    balancePaise += signedDeltaPaise(transaction.type, rupeeStringToPaise(transaction.amount));
+    balancePaise += signedDeltaPaise(transaction.type, amountToPaise(transaction.amount));
   }
   if (change.include) {
     balancePaise += signedDeltaPaise(change.include.type, change.include.amountPaise);
@@ -152,7 +152,7 @@ export function toLedgerEntries(transactions: readonly Transaction[]): LedgerEnt
     created_at: transaction.created_at,
     id: transaction.id,
     type: transaction.type,
-    amountPaise: rupeeStringToPaise(transaction.amount),
+    amountPaise: amountToPaise(transaction.amount),
   }));
 }
 

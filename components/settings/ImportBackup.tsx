@@ -14,7 +14,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { findNegativeBalancePoint, parseBackup, type ParsedBackup } from '@/lib/validation/backup';
-import { rupeeStringToPaise } from '@/lib/calculations/money';
+import { amountToPaise } from '@/lib/calculations/money';
 import { formatDisplayDate } from '@/lib/format/date';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
@@ -74,7 +74,7 @@ export function ImportBackup() {
         : transactions.map((transaction) => ({
             transaction_date: transaction.transaction_date,
             type: transaction.type,
-            amountPaise: rupeeStringToPaise(transaction.amount),
+            amountPaise: amountToPaise(transaction.amount),
           }));
     const merged = [
       ...existing,

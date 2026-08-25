@@ -7,7 +7,7 @@
  * separately so the user can decide what to do.
  */
 
-import { MAX_AMOUNT_PAISE, rupeeStringToPaise } from '@/lib/calculations/money';
+import { MAX_AMOUNT_PAISE, amountToPaise } from '@/lib/calculations/money';
 import { firstNegativeBalanceDate, type LedgerEntryLike } from '@/lib/calculations/balance';
 import { isIsoDate } from '@/lib/format/date';
 import { BACKUP_FORMAT } from '@/lib/export/backup';
@@ -55,7 +55,7 @@ export function fingerprintExisting(transaction: Transaction): string {
   return fingerprint({
     transaction_date: transaction.transaction_date,
     type: transaction.type,
-    amountPaise: rupeeStringToPaise(transaction.amount),
+    amountPaise: amountToPaise(transaction.amount),
     method: transaction.method,
     note: transaction.note ?? '',
   });
@@ -123,10 +123,10 @@ export function parseBackup(
 
     let amountPaise: number;
     try {
+      // One parser for both forms; multiplying a float by 100 here would have been a
+      // second, less careful implementation of the same conversion.
       amountPaise =
-        typeof amount === 'number'
-          ? Math.round(amount * 100)
-          : rupeeStringToPaise(String(amount ?? ''));
+        typeof amount === 'number' ? amountToPaise(amount) : amountToPaise(String(amount ?? ''));
     } catch {
       return { ok: false, message: `Transaction ${position} has an invalid amount.` };
     }

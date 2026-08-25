@@ -10,8 +10,25 @@
 /** Largest amount the app accepts: NUMERIC(12,2) tops out below 10^10 rupees. */
 export const MAX_AMOUNT_PAISE = 9_999_999_999_99; // ₹99,99,99,999.99
 
-/** Parses a decimal rupee string (as returned by Postgres NUMERIC) into paise. */
-export function rupeeStringToPaise(value: string): number {
+/**
+ * Parses a stored amount into paise.
+ *
+ * PostgREST serialises a Postgres `numeric` with `to_json`, which produces an unquoted
+ * JSON number - so `amount` reaches the browser as a JS number, not a string. Backups
+ * and hand-written JSON may carry either form. Numbers are routed through their shortest
+ * round-tripping decimal representation rather than multiplied by 100, so no binary
+ * floating-point error can enter the ledger. Amounts here are capped well below the
+ * point where JS switches to exponent notation, so that representation is always plain
+ * decimal.
+ */
+export function amountToPaise(value: string | number): number {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error(`Not a valid amount: ${value}`);
+    }
+    return amountToPaise(String(value));
+  }
+
   const trimmed = value.trim();
   const match = /^(-)?(\d+)(?:\.(\d{1,}))?$/.exec(trimmed);
   if (!match) {

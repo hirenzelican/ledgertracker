@@ -4,20 +4,44 @@ import {
   formatRupees,
   paiseToRupeeString,
   parseAmountInput,
-  rupeeStringToPaise,
+  amountToPaise,
 } from '@/lib/calculations/money';
 
 test('parses Postgres numeric strings into paise', () => {
-  assert.equal(rupeeStringToPaise('10000.00'), 1_000_000);
-  assert.equal(rupeeStringToPaise('1250.50'), 125_050);
-  assert.equal(rupeeStringToPaise('0.05'), 5);
-  assert.equal(rupeeStringToPaise('7'), 700);
-  assert.equal(rupeeStringToPaise('1250.5'), 125_050);
+  assert.equal(amountToPaise('10000.00'), 1_000_000);
+  assert.equal(amountToPaise('1250.50'), 125_050);
+  assert.equal(amountToPaise('0.05'), 5);
+  assert.equal(amountToPaise('7'), 700);
+  assert.equal(amountToPaise('1250.5'), 125_050);
+});
+
+test('parses the JSON numbers PostgREST sends for a numeric column', () => {
+  // `to_json(numeric)` emits an unquoted number, so this is what actually arrives.
+  assert.equal(amountToPaise(10000), 1_000_000);
+  assert.equal(amountToPaise(7500), 750_000);
+  assert.equal(amountToPaise(1250.5), 125_050);
+  assert.equal(amountToPaise(1250.55), 125_055);
+  assert.equal(amountToPaise(0.05), 5);
+  assert.equal(amountToPaise(9999999999.99), 999_999_999_999);
+});
+
+test('number and string forms of the same amount agree exactly', () => {
+  for (const [text, value] of [
+    ['0.10', 0.1],
+    ['0.20', 0.2],
+    ['0.30', 0.3],
+    ['1250.50', 1250.5],
+    ['8753.50', 8753.5],
+  ] as const) {
+    assert.equal(amountToPaise(value), amountToPaise(text), `${value} vs ${text}`);
+  }
 });
 
 test('rejects amounts that are not decimal numbers', () => {
-  assert.throws(() => rupeeStringToPaise('abc'));
-  assert.throws(() => rupeeStringToPaise(''));
+  assert.throws(() => amountToPaise('abc'));
+  assert.throws(() => amountToPaise(''));
+  assert.throws(() => amountToPaise(Number.NaN));
+  assert.throws(() => amountToPaise(Number.POSITIVE_INFINITY));
 });
 
 test('renders paise back as a NUMERIC(12,2) literal', () => {
@@ -29,11 +53,11 @@ test('renders paise back as a NUMERIC(12,2) literal', () => {
 
 test('round-trips decimal amounts without floating point drift', () => {
   // 0.1 + 0.2 in floating point is 0.30000000000000004; in paise it is exact.
-  const total = rupeeStringToPaise('0.10') + rupeeStringToPaise('0.20');
+  const total = amountToPaise('0.10') + amountToPaise('0.20');
   assert.equal(paiseToRupeeString(total), '0.30');
 
   let running = 0;
-  for (let i = 0; i < 1000; i += 1) running += rupeeStringToPaise('1250.50');
+  for (let i = 0; i < 1000; i += 1) running += amountToPaise('1250.50');
   assert.equal(paiseToRupeeString(running), '1250500.00');
 });
 

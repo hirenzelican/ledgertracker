@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
-import { rupeeStringToPaise } from '@/lib/calculations/money';
+import { amountToPaise } from '@/lib/calculations/money';
 import { METHOD_SHORT_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@/types/transaction';
 
 interface TransactionRowProps {
@@ -20,7 +20,7 @@ interface TransactionRowProps {
 export function TransactionRow({ entry, onSelect, showBalance = true }: TransactionRowProps) {
   const { transaction, balanceAfterPaise } = entry;
   const received = transaction.type === 'RECEIVED';
-  const amountPaise = rupeeStringToPaise(transaction.amount);
+  const amountPaise = amountToPaise(transaction.amount);
 
   const content = (
     <>
