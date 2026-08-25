@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Colour tokens. Every colour used by the app is defined here once, in both themes,
+ * so contrast stays predictable and dark mode never falls back to a borrowed value.
+ */
+:root {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    sans-serif;
+
+  --surface: 255 255 255;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 250 247 245;
+  --border: 232 226 221;
+  --ink: 28 25 23;
+  --ink-muted: 92 84 78;
+  --ink-faint: 133 124 118;
+  --brand: 13 108 92;
+  --brand-ink: 255 255 255;
+  --brand-soft: 226 243 238;
+  --received: 17 122 88;
+  --received-soft: 226 245 236;
+  --received-ink: 255 255 255;
+  --returned: 178 83 30;
+  --returned-soft: 253 235 224;
+  --returned-ink: 255 255 255;
+  --danger: 185 40 40;
+}
+
+.dark {
+  --surface: 30 29 34;
+  --surface-raised: 39 38 44;
+  --surface-sunken: 20 19 23;
+  --border: 58 56 64;
+  --ink: 244 242 240;
+  --ink-muted: 179 173 171;
+  --ink-faint: 138 132 136;
+  --brand: 61 196 166;
+  --brand-ink: 6 32 27;
+  --brand-soft: 26 58 51;
+  --received: 82 205 154;
+  --received-soft: 23 55 45;
+  /* On the bright dark-mode fills, dark text is what keeps contrast readable. */
+  --received-ink: 6 32 27;
+  --returned: 240 158 106;
+  --returned-soft: 62 40 28;
+  --returned-ink: 40 21 10;
+  --danger: 248 113 113;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-sunken text-ink antialiased;
+    font-family: var(--font-sans);
+    /* Respect the notch and the Android gesture bar when installed. */
+    padding-top: env(safe-area-inset-top);
+  }
+
+  /* Visible, consistent focus for keyboard users on every interactive element. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-brand ring-offset-2;
+    --tw-ring-offset-color: rgb(var(--surface-sunken));
+  }
+
+  /* Tabular figures keep amounts aligned as they change. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border border-border bg-surface;
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-medium text-ink-muted;
+  }
+
+  .field-input {
+    @apply w-full rounded-xl border border-border bg-surface px-4 py-3 text-base text-ink
+      placeholder:text-ink-faint focus:border-brand;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

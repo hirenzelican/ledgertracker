@@ -1,0 +1,240 @@
+'use client';
+
+/**
+ * Restore from a JSON backup.
+ *
+ * The file is parsed and fully validated before anything is written, duplicates are
+ * reported rather than silently inserted, and the resulting ledger is checked so a
+ * restore can never leave the balance negative at any point in history.
+ */
+
+import { useRef, useState } from 'react';
+import { Button } from '@/components/ui/Button';
+import { Sheet } from '@/components/ui/Sheet';
+import { useLedger } from '@/components/providers/LedgerProvider';
+import { useToast } from '@/components/providers/ToastProvider';
+import { findNegativeBalancePoint, parseBackup, type ParsedBackup } from '@/lib/validation/backup';
+import { rupeeStringToPaise } from '@/lib/calculations/money';
+import { formatDisplayDate } from '@/lib/format/date';
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
+
+export function ImportBackup() {
+  const { transactions, importTransactions } = useLedger();
+  const { showToast } = useToast();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [pending, setPending] = useState<ParsedBackup | null>(null);
+  const [mode, setMode] = useState<'merge' | 'replace'>('merge');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const handleFile = async (file: File) => {
+    setError(null);
+    if (file.size > MAX_FILE_BYTES) {
+      showToast({ tone: 'error', title: 'That backup file is too large to import.' });
+      return;
+    }
+
+    let text: string;
+    try {
+      text = await file.text();
+    } catch {
+      showToast({ tone: 'error', title: 'Could not read that file. Try choosing it again.' });
+      return;
+    }
+
+    const result = parseBackup(text, transactions);
+    if (!result.ok) {
+      showToast({ tone: 'error', title: 'Invalid backup file', description: result.message });
+      return;
+    }
+    if (result.value.newTransactions.length === 0) {
+      showToast({
+        tone: 'info',
+        title: 'Nothing to import.',
+        description:
+          result.value.duplicates.length > 0
+            ? 'Every transaction in that backup is already in your ledger.'
+            : 'That backup contains no transactions.',
+      });
+      return;
+    }
+
+    setMode('merge');
+    setPending(result.value);
+  };
+
+  const confirmImport = async () => {
+    if (!pending) return;
+
+    // Verify the resulting ledger stays valid before writing anything.
+    const existing =
+      mode === 'replace'
+        ? []
+        : transactions.map((transaction) => ({
+            transaction_date: transaction.transaction_date,
+            type: transaction.type,
+            amountPaise: rupeeStringToPaise(transaction.amount),
+          }));
+    const merged = [
+      ...existing,
+      ...pending.newTransactions.map((input) => ({
+        transaction_date: input.transaction_date,
+        type: input.type,
+        amountPaise: input.amountPaise,
+      })),
+    ];
+    const negative = findNegativeBalancePoint(merged);
+    if (negative) {
+      setError(
+        `This backup would make the balance negative on ${formatDisplayDate(negative.date)}. Nothing was imported.`,
+      );
+      return;
+    }
+
+    setBusy(true);
+    const result = await importTransactions(pending.newTransactions, mode);
+    setBusy(false);
+
+    if (!result.ok) {
+      setError(result.message);
+      return;
+    }
+
+    setPending(null);
+    showToast({
+      tone: 'success',
+      title: `Imported ${result.imported} ${result.imported === 1 ? 'transaction' : 'transactions'}.`,
+      description:
+        pending.duplicates.length > 0
+          ? `${pending.duplicates.length} duplicate ${pending.duplicates.length === 1 ? 'entry was' : 'entries were'} skipped.`
+          : undefined,
+    });
+  };
+
+  return (
+    <>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="application/json,.json"
+        className="sr-only"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          // Reset so choosing the same file twice still fires a change event.
+          event.target.value = '';
+          if (file) void handleFile(file);
+        }}
+      />
+      <Button
+        variant="secondary"
+        size="lg"
+        className="w-full"
+        onClick={() => fileInput.current?.click()}
+      >
+        Import JSON backup
+      </Button>
+
+      <Sheet
+        open={pending !== null}
+        title="Import backup"
+        onClose={() => {
+          setPending(null);
+          setError(null);
+        }}
+        dismissible={!busy}
+      >
+        {pending ? (
+          <div className="space-y-4">
+            <p className="text-[15px] leading-relaxed text-ink">
+              Importing this backup may change your existing transaction history. Continue?
+            </p>
+
+            <dl className="space-y-2 rounded-xl bg-surface-sunken p-4 text-sm">
+              <div className="flex justify-between">
+                <dt className="text-ink-muted">New transactions</dt>
+                <dd className="tnum font-semibold text-ink">{pending.newTransactions.length}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-ink-muted">Duplicates skipped</dt>
+                <dd className="tnum font-semibold text-ink">{pending.duplicates.length}</dd>
+              </div>
+              {pending.exportedAt ? (
+                <div className="flex justify-between">
+                  <dt className="text-ink-muted">Backup taken</dt>
+                  <dd className="text-ink">{formatDisplayDate(pending.exportedAt.slice(0, 10))}</dd>
+                </div>
+              ) : null}
+            </dl>
+
+            <fieldset className="space-y-2">
+              <legend className="field-label">How should this be applied?</legend>
+              {(
+                [
+                  { value: 'merge', label: 'Add to my existing transactions' },
+                  { value: 'replace', label: 'Replace everything with this backup' },
+                ] as const
+              ).map((option) => (
+                <label
+                  key={option.value}
+                  className={`flex min-h-[52px] cursor-pointer items-center gap-3 rounded-xl border px-4 text-[15px] ${
+                    mode === option.value ? 'border-brand bg-brand-soft' : 'border-border bg-surface'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="import-mode"
+                    value={option.value}
+                    checked={mode === option.value}
+                    onChange={() => setMode(option.value)}
+                    className="h-5 w-5 accent-[rgb(var(--brand))]"
+                  />
+                  <span className="text-ink">{option.label}</span>
+                </label>
+              ))}
+            </fieldset>
+
+            {mode === 'replace' ? (
+              <p className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
+                Every transaction currently in the ledger will be permanently deleted first.
+              </p>
+            ) : null}
+
+            {error ? (
+              <p
+                role="alert"
+                className="rounded-xl bg-returned-soft px-4 py-3 text-sm font-medium text-ink"
+              >
+                {error}
+              </p>
+            ) : null}
+
+            <div className="flex gap-3 pt-1">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="flex-1"
+                disabled={busy}
+                onClick={() => {
+                  setPending(null);
+                  setError(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="lg"
+                className="flex-1"
+                loading={busy}
+                loadingLabel="Importing..."
+                onClick={() => void confirmImport()}
+              >
+                Import
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </Sheet>
+    </>
+  );
+}

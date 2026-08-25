@@ -1,0 +1,6 @@
+# Cloudflare Pages deployment (`npx wrangler pages deploy out`).
+# `npm run build` produces the fully static `out/` directory - there is no server-side
+# runtime, so no Workers bindings or compatibility flags are required.
+name = "mothers-money"
+compatibility_date = "2026-08-25"
+pages_build_output_dir = "out"
