@@ -348,6 +348,24 @@ installation against a production build or the deployed site.
 shell until it updates. Close all tabs of the app and reopen, or clear the site data from
 Chrome's site settings.
 
+**"Could not reach the server. Check your connection and try again."** The browser could
+not complete the request and will not say why - a blocked response and a hostname that
+does not exist look identical to JavaScript. Open **Trouble signing in? Check the
+connection** on the login screen and press *Run check*. It reports which Supabase host
+this build was compiled against, the anon key it carries, and whether that host answered.
+
+The most common cause is the URL and the key landing in the same environment variable, so
+requests go to `https://your-ref.supabase.cosb_publishable_...`. They are two separate
+values:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=https://your-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
+```
+
+Both are compiled in at build time, so correcting them in your host does nothing until
+you redeploy.
+
 **"That would make the balance negative on …".** The date on the transaction is earlier
 than the money it is returning. Check the date, or record the matching receipt first.
 

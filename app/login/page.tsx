@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/Field';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { ConnectionCheck } from '@/components/layout/ConnectionCheck';
 
 type Mode = 'password' | 'magic-link' | 'create';
 
@@ -181,6 +182,8 @@ export default function LoginPage() {
             </button>
           </div>
         </form>
+
+        <ConnectionCheck />
       </main>
     </>
   );
