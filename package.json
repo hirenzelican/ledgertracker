@@ -1,8 +1,8 @@
 {
-  "name": "mothers-money",
+  "name": "potli",
   "version": "1.0.0",
   "private": true,
-  "description": "A private, mobile-first PWA ledger for tracking money held on behalf of my mother.",
+  "description": "Track money you are holding for family and friends.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

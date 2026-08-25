@@ -1,6 +1,7 @@
 'use client';
 
 import { cn } from '@/lib/cn';
+import { useLedger } from '@/components/providers/LedgerProvider';
 import { endOfMonth, shiftMonth, startOfMonth, todayIso } from '@/lib/format/date';
 import type { LedgerFilter, TypeFilter } from '@/lib/calculations/filters';
 
@@ -42,8 +43,28 @@ export function TransactionFilters({
   period,
   onPeriodChange,
 }: TransactionFiltersProps) {
+  const { people } = useLedger();
+
   return (
     <div className="space-y-3">
+      {people.length > 1 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filter by person">
+          <FilterChip
+            label="Everyone"
+            selected={filter.personId === null}
+            onClick={() => onChange({ ...filter, personId: null })}
+          />
+          {people.map((person) => (
+            <FilterChip
+              key={person.id}
+              label={person.name}
+              selected={filter.personId === person.id}
+              onClick={() => onChange({ ...filter, personId: person.id })}
+            />
+          ))}
+        </div>
+      ) : null}
+
       <div>
         <label htmlFor="transaction-search" className="sr-only">
           Search notes
@@ -141,6 +162,30 @@ export function TransactionFilters({
         </div>
       ) : null}
     </div>
+  );
+}
+
+function FilterChip({
+  label,
+  selected,
+  onClick,
+}: {
+  label: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      onClick={onClick}
+      className={cn(
+        'min-h-[38px] shrink-0 rounded-full border px-4 text-sm font-medium transition',
+        selected ? 'border-brand bg-brand-soft text-ink' : 'border-border bg-surface text-ink-muted',
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

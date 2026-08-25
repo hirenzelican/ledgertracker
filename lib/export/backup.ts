@@ -9,12 +9,15 @@
 
 import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
 import { sortChronological } from '@/lib/calculations/balance';
-import type { Transaction } from '@/types/transaction';
+import type { Person, Transaction } from '@/types/transaction';
 
-export const BACKUP_FORMAT = 'mothers-money-backup';
-export const BACKUP_VERSION = 1;
+export const BACKUP_FORMAT = 'potli-backup';
+export const BACKUP_VERSION = 2;
 
 export interface BackupTransaction {
+  /** The person by name: ids are meaningless in another project or account. */
+  person: string;
+  person_relationship: string;
   transaction_date: string;
   type: string;
   amount: string;
@@ -30,14 +33,21 @@ export interface BackupFile {
   transactions: BackupTransaction[];
 }
 
-export function buildBackup(transactions: readonly Transaction[], exportedAt: string): BackupFile {
+export function buildBackup(
+  transactions: readonly Transaction[],
+  people: readonly Person[],
+  exportedAt: string,
+): BackupFile {
   const ordered = sortChronological(transactions);
+  const byId = new Map(people.map((person) => [person.id, person]));
   return {
     format: BACKUP_FORMAT,
     version: BACKUP_VERSION,
     exported_at: exportedAt,
     transaction_count: ordered.length,
     transactions: ordered.map((transaction) => ({
+      person: byId.get(transaction.person_id)?.name ?? 'Unknown',
+      person_relationship: byId.get(transaction.person_id)?.relationship ?? 'OTHER',
       transaction_date: transaction.transaction_date,
       type: transaction.type,
       amount: paiseToExportString(amountToPaise(transaction.amount)),

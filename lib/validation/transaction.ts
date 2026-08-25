@@ -16,13 +16,14 @@ import {
 
 export const MAX_NOTE_LENGTH = 200;
 
-export type FieldName = 'amount' | 'transaction_date' | 'type' | 'method' | 'note';
+export type FieldName = 'amount' | 'transaction_date' | 'type' | 'method' | 'note' | 'person';
 
 export type ValidationResult<T> =
   | { ok: true; value: T }
   | { ok: false; errors: Partial<Record<FieldName, string>> };
 
 export interface RawTransactionForm {
+  person_id: string;
   amount: string;
   transaction_date: string;
   type: string;
@@ -69,6 +70,10 @@ export function validateTransactionForm(
     errors.method = 'Choose how the money moved.';
   }
 
+  if (form.person_id.trim() === '') {
+    errors.person = 'Choose whose money this is.';
+  }
+
   if (form.note.trim().length > MAX_NOTE_LENGTH) {
     errors.note = `Note cannot be longer than ${MAX_NOTE_LENGTH} characters.`;
   }
@@ -80,6 +85,7 @@ export function validateTransactionForm(
   return {
     ok: true,
     value: {
+      person_id: form.person_id,
       amountPaise,
       transaction_date: form.transaction_date,
       type: form.type as TransactionType,
@@ -97,11 +103,13 @@ export function validateTransactionForm(
 export function checkBalanceNotNegative(
   projectedBalancePaise: number,
   availableBalancePaise: number,
+  personName = 'their',
 ): { ok: true } | { ok: false; message: string } {
   if (projectedBalancePaise >= 0) return { ok: true };
+  const whose = personName === 'their' ? 'their' : `${personName}'s`;
   return {
     ok: false,
-    message: `Insufficient balance. Mother's available balance is ${formatRupees(
+    message: `Insufficient balance. ${whose} available balance is ${formatRupees(
       Math.max(availableBalancePaise, 0),
     )}.`,
   };

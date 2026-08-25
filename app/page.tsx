@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
+import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { EmptyState } from '@/components/dashboard/EmptyState';
 import { WelcomeCard } from '@/components/dashboard/WelcomeCard';
@@ -16,7 +17,7 @@ import { TransactionSheet, type SheetMode } from '@/components/transactions/Tran
 import { useLedger } from '@/components/providers/LedgerProvider';
 import type { TransactionType } from '@/types/transaction';
 
-const WELCOME_KEY = 'mothers-money-welcome-dismissed';
+const WELCOME_KEY = 'potli-welcome-dismissed';
 const RECENT_COUNT = 5;
 
 export default function DashboardPage() {
@@ -28,7 +29,7 @@ export default function DashboardPage() {
 }
 
 function Dashboard() {
-  const { ledger, totals, status, loadError, refresh } = useLedger();
+  const { ledger, totals, status, loadError, refresh, personBalances } = useLedger();
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -70,7 +71,7 @@ function Dashboard() {
 
   return (
     <AppShell
-      title="Mother's Money"
+      title="Potli"
       action={
         <Link
           href="/settings/"
@@ -113,6 +114,17 @@ function Dashboard() {
         ) : null}
 
         {isEmpty ? <EmptyState onAdd={() => openSheet('RECEIVED')} /> : null}
+
+        {personBalances.length > 0 ? (
+          <section>
+            <SectionHeading>
+              {personBalances.length === 1 ? 'Whose money' : "Whose money you're holding"}
+            </SectionHeading>
+            <div className="card overflow-hidden p-0">
+              <PeopleBalances balances={personBalances} />
+            </div>
+          </section>
+        ) : null}
 
         {recent.length > 0 ? (
           <section>

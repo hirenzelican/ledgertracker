@@ -10,6 +10,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { RELATIONSHIP_LABELS } from '@/types/transaction';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees, amountToPaise } from '@/lib/calculations/money';
 import { formatDisplayDate } from '@/lib/format/date';
@@ -22,7 +23,7 @@ interface TransactionActionsProps {
 }
 
 export function TransactionActions({ entry, onClose, onEdit }: TransactionActionsProps) {
-  const { removeTransaction, balanceIfApplied } = useLedger();
+  const { removeTransaction, balanceIfApplied, people } = useLedger();
   const { showToast } = useToast();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -35,7 +36,9 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
 
   const handleDelete = async () => {
     setDeleting(true);
-    const balanceAfterDelete = balanceIfApplied({ excludeId: transaction.id });
+    const balanceAfterDelete = balanceIfApplied(transaction.person_id, {
+      excludeId: transaction.id,
+    });
     const result = await removeTransaction(transaction.id);
     setDeleting(false);
 
@@ -49,7 +52,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
     showToast({
       tone: 'success',
       title: `${formatRupees(amountPaise)} ${typeLabel} transaction deleted.`,
-      description: `Mother's balance: ${formatRupees(balanceAfterDelete)}`,
+      description: `${personLabel(people, transaction.person_id).split(' (')[0]}'s balance: ${formatRupees(balanceAfterDelete)}`,
     });
   };
 
@@ -57,6 +60,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
     <>
       <Sheet open={!confirmingDelete} title="Transaction" onClose={onClose}>
         <dl className="space-y-3 text-[15px]">
+          <Detail term="Person">{personLabel(people, transaction.person_id)}</Detail>
           <Detail term="Amount">
             <span className="tnum font-semibold">
               {transaction.type === 'RECEIVED' ? '+' : '−'} {formatRupees(amountPaise)}
@@ -98,6 +102,16 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
       />
     </>
   );
+}
+
+/** Name plus relationship, or a plain fallback if the person has since been removed. */
+function personLabel(
+  people: readonly { id: string; name: string; relationship: keyof typeof RELATIONSHIP_LABELS }[],
+  personId: string,
+): string {
+  const person = people.find((candidate) => candidate.id === personId);
+  if (!person) return 'Unknown';
+  return `${person.name} (${RELATIONSHIP_LABELS[person.relationship]})`;
 }
 
 function Detail({ term, children }: { term: string; children: React.ReactNode }) {

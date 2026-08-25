@@ -1,18 +1,22 @@
-# Mother's Money
+# Potli
 
-A private, mobile-first PWA for one job: knowing **how much of my mother's money I am
-currently holding**.
+**Money you hold for the people you love. Never guess the amount again.**
 
-She gives me money (Google Pay / UPI, cash, bank transfer, other) to keep in my account,
-and later asks for some of it back. This app records both directions and shows the
-running balance.
+A private, mobile-first PWA for one job: knowing **how much of someone else's money you
+are currently holding**.
+
+Your mother leaves ₹10,000 with you for safekeeping. Your brother asks you to hold ₹4,000
+until next month. Money arrives by Google Pay / UPI, cash or bank transfer, and goes back
+in pieces over weeks. Potli records both directions, per person, and always knows the
+balance.
 
 ```
-Current balance = SUM(RECEIVED) − SUM(RETURNED)
+Each person's balance = SUM(RECEIVED) − SUM(RETURNED)
 ```
 
 The transaction table is the only source of truth. No balance is ever stored, so editing
-or deleting history can never leave a stale total behind.
+or deleting history can never leave a stale total behind. Every person is a separate pot:
+money held for one person can never fund a return to another.
 
 ## Contents
 
@@ -36,20 +40,24 @@ or deleting history can never leave a stale total behind.
 
 ## What it does
 
-- **Dashboard** — the current balance, total received, total returned, transaction count
-  and the date of the last entry, with two large buttons for recording money.
-- **Record money** — amount, source/method, date (defaults to today) and an optional
-  note. Returning more than the available balance is refused.
+- **Dashboard** — the total you are holding, then a per-person breakdown of who that
+  money belongs to, with two large buttons for recording money.
+- **People** — everyone whose money you hold, each with a relationship (mother, brother,
+  friend…) and their own balance. Added inline while recording, so a new person never
+  costs a detour.
+- **Record money** — person, amount, source/method, date (defaults to today) and an
+  optional note. Returning more than that person's balance is refused.
 - **History** — every transaction newest-first with the balance after each one, filters
-  (all / received / returned, this month, last month, custom range) and note search.
+  (person, all / received / returned, this month, last month, custom range) and note
+  search.
 - **Edit and delete** — with confirmation; all balances are recalculated from scratch.
 - **Statement** — opening balance, money in, money out and closing balance for a date
-  range, plus the transactions in that period.
+  range, for everyone or one person, plus the transactions in that period.
 - **Backup** — CSV export, JSON backup and validated JSON restore.
 - **PWA** — installable, standalone, offline-aware, light/dark themes.
 
-Deliberately *not* included: budgets, expenses, investments, bills, multiple users, bank
-imports. It tracks one thing.
+Deliberately *not* included: budgets, expenses, investments, bills, bank imports,
+lending or interest. It tracks one thing.
 
 ## Technology
 
@@ -102,9 +110,10 @@ them**. `.env.local` is gitignored; nothing secret belongs in this repository.
 
 ## Database migration
 
-Open the Supabase SQL editor and run
-[`supabase/migrations/20260825000000_create_transactions.sql`](supabase/migrations/20260825000000_create_transactions.sql),
-or apply it with the CLI:
+Open the Supabase SQL editor and run both migrations in order -
+[`20260825000000_create_transactions.sql`](supabase/migrations/20260825000000_create_transactions.sql)
+then [`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql) -
+or apply them with the CLI:
 
 ```bash
 supabase link --project-ref <project-ref>
@@ -114,10 +123,18 @@ supabase db push
 It creates:
 
 ```
+people
+------
+id           uuid primary key
+user_id      uuid not null references auth.users(id) on delete cascade
+name         text not null            -- unique per user
+relationship text not null            -- MOTHER | FATHER | BROTHER | SISTER | SPOUSE | FRIEND | OTHER
+
 transactions
 ------------
 id               uuid primary key
 user_id          uuid not null references auth.users(id) on delete cascade
+person_id        uuid not null references people(id) on delete restrict
 transaction_date date not null
 type             text not null   -- RECEIVED | RETURNED
 amount           numeric(12,2) not null  -- always > 0
@@ -306,6 +323,9 @@ Decisions that are load-bearing, in case a future change threatens one of them:
   ₹1,250.50 stays exact no matter how many times it is added.
 - **Balances are always derived.** `buildRunningBalances` and `calculateTotals` recompute
   from the transaction list on every render. Nothing writes a `balance_after` column.
+- **Each person is a separate pot.** Balances, guards and statements are all scoped per
+  person; the dashboard total is only ever a sum of them. Deleting someone who still has
+  transactions is refused by the database rather than silently erasing their history.
 - **The balance can never go negative.** Returning more than is currently held is refused
   outright with the available amount. A back-dated entry that leaves the ledger below zero
   only part-way through its history is a *warning* with a "Save anyway" button, not a

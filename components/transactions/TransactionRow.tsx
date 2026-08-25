@@ -7,6 +7,8 @@ import { METHOD_SHORT_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@
 
 interface TransactionRowProps {
   entry: TransactionWithBalance;
+  /** Omitted when the surrounding view is already scoped to one person. */
+  personName?: string;
   /** When provided the row becomes a button that opens the actions sheet. */
   onSelect?: (entry: TransactionWithBalance) => void;
   showBalance?: boolean;
@@ -17,7 +19,12 @@ interface TransactionRowProps {
  * `+`/`−` sign and the word "Received"/"Returned" as well as by colour, so the
  * direction is readable without relying on colour perception.
  */
-export function TransactionRow({ entry, onSelect, showBalance = true }: TransactionRowProps) {
+export function TransactionRow({
+  entry,
+  onSelect,
+  personName,
+  showBalance = true,
+}: TransactionRowProps) {
   const { transaction, balanceAfterPaise } = entry;
   const received = transaction.type === 'RECEIVED';
   const amountPaise = amountToPaise(transaction.amount);
@@ -61,6 +68,12 @@ export function TransactionRow({ entry, onSelect, showBalance = true }: Transact
         <span className="mt-0.5 flex items-baseline justify-between gap-3">
           <span className="truncate text-sm text-ink-muted">
             <span className="sr-only">{TYPE_LABELS[transaction.type]} via </span>
+            {personName ? (
+              <>
+                <span className="font-medium text-ink-muted">{personName}</span>
+                {' · '}
+              </>
+            ) : null}
             {METHOD_SHORT_LABELS[transaction.method]}
             {transaction.note ? (
               <span className="text-ink-faint"> · {transaction.note}</span>

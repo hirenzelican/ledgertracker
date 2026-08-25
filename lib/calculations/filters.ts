@@ -9,6 +9,8 @@ export type TypeFilter = 'ALL' | TransactionType;
 
 export interface LedgerFilter {
   type: TypeFilter;
+  /** Restricts to one person; null means everyone. */
+  personId: string | null;
   /** Case-insensitive substring match against the note. */
   search: string;
   /** Inclusive ISO date bounds; null means unbounded. */
@@ -16,7 +18,13 @@ export interface LedgerFilter {
   to: string | null;
 }
 
-export const EMPTY_FILTER: LedgerFilter = { type: 'ALL', search: '', from: null, to: null };
+export const EMPTY_FILTER: LedgerFilter = {
+  type: 'ALL',
+  personId: null,
+  search: '',
+  from: null,
+  to: null,
+};
 
 export function filterLedger(
   entries: readonly TransactionWithBalance[],
@@ -26,6 +34,7 @@ export function filterLedger(
 
   return entries.filter(({ transaction }) => {
     if (filter.type !== 'ALL' && transaction.type !== filter.type) return false;
+    if (filter.personId !== null && transaction.person_id !== filter.personId) return false;
     if (filter.from !== null && transaction.transaction_date < filter.from) return false;
     if (filter.to !== null && transaction.transaction_date > filter.to) return false;
     if (needle !== '' && !(transaction.note ?? '').toLowerCase().includes(needle)) return false;
@@ -36,6 +45,7 @@ export function filterLedger(
 export function isFilterActive(filter: LedgerFilter): boolean {
   return (
     filter.type !== 'ALL' ||
+    filter.personId !== null ||
     filter.search.trim() !== '' ||
     filter.from !== null ||
     filter.to !== null

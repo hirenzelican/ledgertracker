@@ -8,9 +8,10 @@ import {
 import { parseBackup, findNegativeBalancePoint } from '@/lib/validation/backup';
 import { buildBackup, serializeBackup } from '@/lib/export/backup';
 import { transactionsToCsv } from '@/lib/export/csv';
-import { makeTransaction } from './helpers';
+import { DEFAULT_PEOPLE, makeTransaction } from './helpers';
 
 const VALID_FORM = {
+  person_id: 'person-1',
   amount: '1000',
   transaction_date: '2026-08-25',
   type: 'RECEIVED',
@@ -61,7 +62,7 @@ test('insufficient balance is reported with the available amount', () => {
   const ok = checkBalanceNotNegative(0, 1_300_000);
   assert.ok(ok.ok);
 
-  const bad = checkBalanceNotNegative(-200_000, 300_000);
+  const bad = checkBalanceNotNegative(-200_000, 300_000, 'Mother');
   assert.ok(!bad.ok);
   assert.equal(bad.message, "Insufficient balance. Mother's available balance is ₹3,000.");
 });
@@ -79,12 +80,12 @@ test('CSV export matches the documented format', () => {
     }),
   ];
   assert.equal(
-    transactionsToCsv(ledger),
+    transactionsToCsv(ledger, DEFAULT_PEOPLE),
     [
-      'Date,Type,Amount,Method,Note',
-      '2026-08-20,RECEIVED,10000.00,GOOGLE_PAY,',
-      '2026-08-22,RETURNED,2000.00,GOOGLE_PAY,Emergency',
-      '2026-08-25,RECEIVED,5000.00,CASH,Monthly savings',
+      'Date,Person,Relationship,Type,Amount,Method,Note',
+      '2026-08-20,Mother,MOTHER,RECEIVED,10000.00,GOOGLE_PAY,',
+      '2026-08-22,Mother,MOTHER,RETURNED,2000.00,GOOGLE_PAY,Emergency',
+      '2026-08-25,Mother,MOTHER,RECEIVED,5000.00,CASH,Monthly savings',
     ].join('\r\n'),
   );
 });
@@ -94,9 +95,9 @@ test('CSV quotes separators and neutralises formula-looking notes', () => {
     makeTransaction({ date: '2026-08-20', type: 'RECEIVED', amount: '1.00', note: 'a,b "c"' }),
     makeTransaction({ date: '2026-08-21', type: 'RECEIVED', amount: '1.00', note: '=SUM(A1)' }),
   ];
-  const lines = transactionsToCsv(ledger).split('\r\n');
-  assert.equal(lines[1], '2026-08-20,RECEIVED,1.00,GOOGLE_PAY,"a,b ""c"""');
-  assert.equal(lines[2], "2026-08-21,RECEIVED,1.00,GOOGLE_PAY,'=SUM(A1)");
+  const lines = transactionsToCsv(ledger, DEFAULT_PEOPLE).split('\r\n');
+  assert.equal(lines[1], '2026-08-20,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,"a,b ""c"""');
+  assert.equal(lines[2], "2026-08-21,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,'=SUM(A1)");
 });
 
 test('a backup round-trips through export and import', () => {
@@ -104,16 +105,16 @@ test('a backup round-trips through export and import', () => {
     makeTransaction({ date: '2026-08-20', type: 'RECEIVED', amount: '10000.00' }),
     makeTransaction({ date: '2026-08-22', type: 'RETURNED', amount: '2000.50', note: 'Emergency' }),
   ];
-  const text = serializeBackup(buildBackup(ledger, '2026-08-25T00:00:00.000Z'));
+  const text = serializeBackup(buildBackup(ledger, DEFAULT_PEOPLE, '2026-08-25T00:00:00.000Z'));
 
-  const intoEmpty = parseBackup(text, []);
+  const intoEmpty = parseBackup(text, [], DEFAULT_PEOPLE);
   assert.ok(intoEmpty.ok);
   assert.equal(intoEmpty.value.newTransactions.length, 2);
   assert.equal(intoEmpty.value.newTransactions[1]?.amountPaise, 200_050);
   assert.equal(intoEmpty.value.duplicates.length, 0);
 
   // Importing the same backup again finds every row already present.
-  const intoSame = parseBackup(text, ledger);
+  const intoSame = parseBackup(text, ledger, DEFAULT_PEOPLE);
   assert.ok(intoSame.ok);
   assert.equal(intoSame.value.newTransactions.length, 0);
   assert.equal(intoSame.value.duplicates.length, 2);

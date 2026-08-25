@@ -12,7 +12,7 @@ import {
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 
-const STORAGE_KEY = 'mothers-money-theme';
+const STORAGE_KEY = 'potli-theme';
 
 interface ThemeContextValue {
   preference: ThemePreference;

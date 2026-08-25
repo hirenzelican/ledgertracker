@@ -14,21 +14,42 @@ import { BACKUP_FORMAT } from '@/lib/export/backup';
 import { MAX_NOTE_LENGTH, sanitizeNote } from './transaction';
 import {
   isPaymentMethod,
+  isRelationship,
   isTransactionType,
+  type PaymentMethod,
+  type Person,
+  type Relationship,
   type Transaction,
-  type TransactionInput,
+  type TransactionType,
 } from '@/types/transaction';
 
 /** Hard cap so a malformed or hostile file cannot lock up the browser. */
 export const MAX_BACKUP_TRANSACTIONS = 10_000;
 
+/**
+ * A validated backup row. The person is carried by name because ids mean nothing
+ * outside the project that produced them; the importer maps names onto real people.
+ */
+export interface BackupRowInput {
+  personName: string;
+  personRelationship: Relationship;
+  transaction_date: string;
+  type: TransactionType;
+  amountPaise: number;
+  method: PaymentMethod;
+  note: string;
+}
+
 export interface ParsedBackup {
   /** Rows that are valid and not already present in the ledger. */
-  newTransactions: TransactionInput[];
+  newTransactions: BackupRowInput[];
   /** Rows that exactly match an existing transaction; skipped by default. */
-  duplicates: TransactionInput[];
+  duplicates: BackupRowInput[];
   exportedAt: string | null;
 }
+
+/** Backups written before people existed all belong to the one person there was. */
+const LEGACY_PERSON_NAME = 'Mother';
 
 export type BackupParseResult =
   | { ok: true; value: ParsedBackup }
@@ -40,19 +61,29 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /** Identity used for duplicate detection: same day, direction, amount, method and note. */
 function fingerprint(input: {
+  personName: string;
   transaction_date: string;
   type: string;
   amountPaise: number;
   method: string;
   note: string;
 }): string {
-  return [input.transaction_date, input.type, input.amountPaise, input.method, input.note].join(
-    '|',
-  );
+  return [
+    input.personName.trim().toLowerCase(),
+    input.transaction_date,
+    input.type,
+    input.amountPaise,
+    input.method,
+    input.note,
+  ].join('|');
 }
 
-export function fingerprintExisting(transaction: Transaction): string {
+export function fingerprintExisting(
+  transaction: Transaction,
+  peopleById: ReadonlyMap<string, Person>,
+): string {
   return fingerprint({
+    personName: peopleById.get(transaction.person_id)?.name ?? '',
     transaction_date: transaction.transaction_date,
     type: transaction.type,
     amountPaise: amountToPaise(transaction.amount),
@@ -68,6 +99,7 @@ export function fingerprintExisting(transaction: Transaction): string {
 export function parseBackup(
   rawText: string,
   existing: readonly Transaction[],
+  people: readonly Person[] = [],
 ): BackupParseResult {
   let parsed: unknown;
   try {
@@ -80,8 +112,10 @@ export function parseBackup(
     return { ok: false, message: 'That backup file is not in the expected format.' };
   }
 
-  if (parsed.format !== undefined && parsed.format !== BACKUP_FORMAT) {
-    return { ok: false, message: 'That backup was not created by Mother’s Money.' };
+  // The app was called Mother's Money before it handled more than one person.
+  const KNOWN_FORMATS = [BACKUP_FORMAT, 'mothers-money-backup'];
+  if (parsed.format !== undefined && !KNOWN_FORMATS.includes(String(parsed.format))) {
+    return { ok: false, message: 'That backup was not created by Potli.' };
   }
 
   const rows = parsed.transactions;
@@ -95,10 +129,13 @@ export function parseBackup(
     };
   }
 
-  const existingFingerprints = new Set(existing.map(fingerprintExisting));
+  const peopleById = new Map(people.map((person) => [person.id, person]));
+  const existingFingerprints = new Set(
+    existing.map((transaction) => fingerprintExisting(transaction, peopleById)),
+  );
   const seenInFile = new Set<string>();
-  const newTransactions: TransactionInput[] = [];
-  const duplicates: TransactionInput[] = [];
+  const newTransactions: BackupRowInput[] = [];
+  const duplicates: BackupRowInput[] = [];
 
   for (const [index, row] of rows.entries()) {
     const position = index + 1;
@@ -106,7 +143,20 @@ export function parseBackup(
       return { ok: false, message: `Transaction ${position} in the backup is not valid.` };
     }
 
-    const { transaction_date: date, type, amount, method, note } = row;
+    const {
+      transaction_date: date,
+      type,
+      amount,
+      method,
+      note,
+      person,
+      person_relationship: personRelationship,
+    } = row;
+
+    if (person !== undefined && (typeof person !== 'string' || person.trim() === '')) {
+      return { ok: false, message: `Transaction ${position} has an invalid person.` };
+    }
+    const personName = typeof person === 'string' ? person.trim().slice(0, 60) : LEGACY_PERSON_NAME;
 
     if (typeof date !== 'string' || !isIsoDate(date)) {
       return { ok: false, message: `Transaction ${position} has an invalid date.` };
@@ -142,7 +192,9 @@ export function parseBackup(
     }
     const cleanNote = sanitizeNote(typeof note === 'string' ? note : '').slice(0, MAX_NOTE_LENGTH);
 
-    const input: TransactionInput = {
+    const input: BackupRowInput = {
+      personName,
+      personRelationship: isRelationship(personRelationship) ? personRelationship : 'OTHER',
       transaction_date: date,
       type,
       amountPaise,
@@ -150,7 +202,7 @@ export function parseBackup(
       note: cleanNote,
     };
 
-    const key = fingerprint({ ...input, note: cleanNote });
+    const key = fingerprint(input);
     if (existingFingerprints.has(key) || seenInFile.has(key)) {
       duplicates.push(input);
     } else {

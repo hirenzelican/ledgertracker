@@ -5,9 +5,9 @@
 
 import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
 import { sortChronological } from '@/lib/calculations/balance';
-import type { Transaction } from '@/types/transaction';
+import type { Person, Transaction } from '@/types/transaction';
 
-const HEADER = 'Date,Type,Amount,Method,Note';
+const HEADER = 'Date,Person,Relationship,Type,Amount,Method,Note';
 
 /**
  * Quotes a field when it contains a separator, quote or newline. A leading `=`, `+`,
@@ -22,10 +22,16 @@ function csvField(value: string): string {
   return guarded;
 }
 
-export function transactionsToCsv(transactions: readonly Transaction[]): string {
+export function transactionsToCsv(
+  transactions: readonly Transaction[],
+  people: readonly Person[],
+): string {
+  const byId = new Map(people.map((person) => [person.id, person]));
   const rows = sortChronological(transactions).map((transaction) =>
     [
       transaction.transaction_date,
+      csvField(byId.get(transaction.person_id)?.name ?? 'Unknown'),
+      byId.get(transaction.person_id)?.relationship ?? 'OTHER',
       transaction.type,
       paiseToExportString(amountToPaise(transaction.amount)),
       transaction.method,

@@ -15,6 +15,27 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+const AUTH_STORAGE_KEY = 'potli-auth';
+const LEGACY_AUTH_STORAGE_KEY = 'mothers-money-auth';
+
+/**
+ * The storage key changed with the rename to Potli. Moving the existing session across
+ * keeps everyone signed in; without this the rename would silently log them out.
+ */
+function migrateLegacySession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const existing = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    const legacy = window.localStorage.getItem(LEGACY_AUTH_STORAGE_KEY);
+    if (existing === null && legacy !== null) {
+      window.localStorage.setItem(AUTH_STORAGE_KEY, legacy);
+      window.localStorage.removeItem(LEGACY_AUTH_STORAGE_KEY);
+    }
+  } catch {
+    // Storage can throw in private browsing; the user signs in again, nothing breaks.
+  }
+}
+
 let cachedClient: SupabaseClient | null = null;
 
 /**
@@ -28,13 +49,14 @@ export function getSupabaseClient(): SupabaseClient {
     );
   }
   if (!cachedClient) {
+    migrateLegacySession();
     cachedClient = createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
         flowType: 'pkce',
-        storageKey: 'mothers-money-auth',
+        storageKey: AUTH_STORAGE_KEY,
       },
     });
   }

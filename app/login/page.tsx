@@ -101,9 +101,9 @@ export default function LoginPage() {
           >
             ₹
           </div>
-          <h1 className="text-2xl font-semibold text-ink">Mother&rsquo;s Money</h1>
+          <h1 className="text-2xl font-semibold text-ink">Potli</h1>
           <p className="mt-1.5 text-[15px] text-ink-muted">
-            Sign in to see the balance you are holding.
+            Money you hold for the people you love. Never guess the amount again.
           </p>
         </div>
 

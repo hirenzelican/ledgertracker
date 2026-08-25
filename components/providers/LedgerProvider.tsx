@@ -21,12 +21,20 @@ import {
 } from 'react';
 import {
   buildRunningBalances,
+  calculatePersonBalances,
   calculateTotals,
   firstNegativeBalanceDate,
+  forPerson,
   projectedBalancePaise,
   sortChronological,
   toLedgerEntries,
 } from '@/lib/calculations/balance';
+import {
+  deletePerson as deletePersonRow,
+  fetchPeople,
+  insertPerson,
+  updatePerson as updatePersonRow,
+} from '@/lib/supabase/people';
 import {
   deleteTransaction as deleteTransactionRow,
   fetchTransactions,
@@ -37,10 +45,14 @@ import {
 } from '@/lib/supabase/transactions';
 import { GENERIC_LOAD_ERROR, GENERIC_SAVE_ERROR, toFriendlyMessage } from '@/lib/supabase/errors';
 import { checkBalanceNotNegative } from '@/lib/validation/transaction';
+import type { BackupRowInput } from '@/lib/validation/backup';
 import { formatDisplayDate } from '@/lib/format/date';
 import { useAuth } from './AuthProvider';
 import type {
   LedgerTotals,
+  Person,
+  PersonBalance,
+  PersonInput,
   Transaction,
   TransactionInput,
   TransactionWithBalance,
@@ -55,6 +67,8 @@ export type MutationResult =
    */
   | { ok: false; message: string; overridable?: boolean };
 
+export type PersonResult = { ok: true; person: Person } | { ok: false; message: string };
+
 export interface MutationOptions {
   /** Proceed even though the balance dips below zero mid-history. */
   allowNegativeHistory?: boolean;
@@ -62,6 +76,12 @@ export interface MutationOptions {
 
 interface LedgerContextValue {
   transactions: Transaction[];
+  people: Person[];
+  /** Per-person figures, most money held first. */
+  personBalances: PersonBalance[];
+  addPerson: (input: PersonInput) => Promise<PersonResult>;
+  editPerson: (id: string, input: PersonInput) => Promise<PersonResult>;
+  removePerson: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
   /** Newest first, each decorated with the balance after it. */
   ledger: TransactionWithBalance[];
   totals: LedgerTotals;
@@ -75,19 +95,31 @@ interface LedgerContextValue {
     options?: MutationOptions,
   ) => Promise<MutationResult>;
   removeTransaction: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
+  /** Restores backup rows, creating any people they refer to that do not exist yet. */
   importTransactions: (
-    inputs: readonly TransactionInput[],
+    rows: readonly BackupRowInput[],
     mode: 'merge' | 'replace',
   ) => Promise<{ ok: true; imported: number } | { ok: false; message: string }>;
-  /** Balance the ledger would have if this change were applied, in paise. */
-  balanceIfApplied: (change: {
-    excludeId?: string;
-    include?: { type: TransactionInput['type']; amountPaise: number };
-  }) => number;
+  /**
+   * Balance for one person if this change were applied, in paise. Balances are always
+   * per person: money held for a brother cannot fund a return to a mother.
+   */
+  balanceIfApplied: (
+    personId: string,
+    change: {
+      excludeId?: string;
+      include?: { type: TransactionInput['type']; amountPaise: number };
+    },
+  ) => number;
   findTransaction: (id: string) => Transaction | undefined;
 }
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
+
+/** The person's name for use in a message, or a neutral fallback. */
+function nameOf(people: readonly Person[], personId: string): string {
+  return people.find((person) => person.id === personId)?.name ?? 'their';
+}
 
 /**
  * Checks a change against the ledger. A final balance below zero is refused outright -
@@ -99,14 +131,22 @@ function rejectIfNegative(
   transactions: readonly Transaction[],
   input: TransactionInput,
   excludeId: string | undefined,
+  personName: string,
 ): { message: string; overridable: boolean } | null {
-  const remaining = transactions.filter((transaction) => transaction.id !== excludeId);
+  // Scoped to one person: each person's money is a separate pot, and holding ₹5,000 for
+  // a brother does not let you return ₹5,000 to a mother.
+  const remaining = forPerson(transactions, input.person_id).filter(
+    (transaction) => transaction.id !== excludeId,
+  );
 
-  const finalBalance = projectedBalancePaise(transactions, {
-    excludeId,
+  const finalBalance = projectedBalancePaise(remaining, {
     include: { type: input.type, amountPaise: input.amountPaise },
   });
-  const check = checkBalanceNotNegative(finalBalance, projectedBalancePaise(remaining, {}));
+  const check = checkBalanceNotNegative(
+    finalBalance,
+    projectedBalancePaise(remaining, {}),
+    personName,
+  );
   if (!check.ok) return { message: check.message, overridable: false };
 
   const negativeDate = firstNegativeBalanceDate([
@@ -121,7 +161,7 @@ function rejectIfNegative(
   ]);
   if (negativeDate !== null) {
     return {
-      message: `This makes the balance negative on ${formatDisplayDate(negativeDate)}, because nothing earlier accounts for it yet. If you are still adding older transactions, that is expected.`,
+      message: `This makes ${personName}'s balance negative on ${formatDisplayDate(negativeDate)}, because nothing earlier accounts for it yet. If you are still adding older transactions, that is expected.`,
       overridable: true,
     };
   }
@@ -132,6 +172,7 @@ function rejectIfNegative(
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
   const requestId = useRef(0);
@@ -141,9 +182,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setStatus('loading');
     setLoadError(null);
     try {
-      const rows = await fetchTransactions();
+      const [rows, peopleRows] = await Promise.all([fetchTransactions(), fetchPeople()]);
       if (currentRequest !== requestId.current) return;
       setTransactions(sortChronological(rows));
+      setPeople(peopleRows);
       setStatus('ready');
     } catch (error) {
       if (currentRequest !== requestId.current) return;
@@ -158,6 +200,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     } else if (authStatus === 'signed-out' || authStatus === 'unconfigured') {
       requestId.current++;
       setTransactions([]);
+      setPeople([]);
       setStatus(authStatus === 'signed-out' ? 'ready' : 'error');
       setLoadError(
         authStatus === 'unconfigured'
@@ -168,10 +211,79 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   }, [authStatus, load]);
 
   const balanceIfApplied = useCallback(
-    (change: {
-      excludeId?: string;
-      include?: { type: TransactionInput['type']; amountPaise: number };
-    }) => projectedBalancePaise(transactions, change),
+    (
+      personId: string,
+      change: {
+        excludeId?: string;
+        include?: { type: TransactionInput['type']; amountPaise: number };
+      },
+    ) => projectedBalancePaise(forPerson(transactions, personId), change),
+    [transactions],
+  );
+
+  const personBalances = useMemo(
+    () => calculatePersonBalances(people, transactions),
+    [people, transactions],
+  );
+
+  const addPerson = useCallback(
+    async (input: PersonInput): Promise<PersonResult> => {
+      if (!user) return { ok: false, message: 'Please sign in again to add someone.' };
+      try {
+        const saved = await insertPerson(input, user.id);
+        setPeople((current) => [...current, saved].sort((a, b) => a.name.localeCompare(b.name)));
+        return { ok: true, person: saved };
+      } catch (error) {
+        const message = (error as { code?: string }).code === '23505'
+          ? 'Someone with that name is already on your list.'
+          : toFriendlyMessage(error, 'Could not add that person. Please try again.');
+        return { ok: false, message };
+      }
+    },
+    [user],
+  );
+
+  const editPerson = useCallback(
+    async (id: string, input: PersonInput): Promise<PersonResult> => {
+      try {
+        const saved = await updatePersonRow(id, input);
+        setPeople((current) =>
+          current
+            .map((person) => (person.id === id ? saved : person))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        );
+        return { ok: true, person: saved };
+      } catch (error) {
+        const message = (error as { code?: string }).code === '23505'
+          ? 'Someone with that name is already on your list.'
+          : toFriendlyMessage(error, 'Could not save that change. Please try again.');
+        return { ok: false, message };
+      }
+    },
+    [],
+  );
+
+  const removePerson = useCallback(
+    async (id: string) => {
+      // The database refuses this while history remains; say so in plain words.
+      if (transactions.some((transaction) => transaction.person_id === id)) {
+        return {
+          ok: false as const,
+          message:
+            'Delete their transactions first. Removing someone with history would erase the record of it.',
+        };
+      }
+      try {
+        await deletePersonRow(id);
+        setPeople((current) => current.filter((person) => person.id !== id));
+        return { ok: true as const };
+      } catch (error) {
+        return {
+          ok: false as const,
+          message: toFriendlyMessage(error, 'Could not remove that person. Please try again.'),
+        };
+      }
+    },
     [transactions],
   );
 
@@ -186,7 +298,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     async (input: TransactionInput, options?: MutationOptions): Promise<MutationResult> => {
       if (!user) return { ok: false, message: 'Please sign in again to save transactions.' };
 
-      const rejection = rejectIfNegative(transactions, input, undefined);
+      const rejection = rejectIfNegative(transactions, input, undefined, nameOf(people, input.person_id));
       if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
       }
@@ -199,7 +311,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         return { ok: false, message: toFriendlyMessage(error, GENERIC_SAVE_ERROR) };
       }
     },
-    [transactions, user],
+    [people, transactions, user],
   );
 
   const editTransaction = useCallback(
@@ -208,7 +320,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       input: TransactionInput,
       options?: MutationOptions,
     ): Promise<MutationResult> => {
-      const rejection = rejectIfNegative(transactions, input, id);
+      const rejection = rejectIfNegative(transactions, input, id, nameOf(people, input.person_id));
       if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
       }
@@ -223,7 +335,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         return { ok: false, message: toFriendlyMessage(error, GENERIC_SAVE_ERROR) };
       }
     },
-    [transactions],
+    [people, transactions],
   );
 
   const removeTransaction = useCallback(
@@ -246,12 +358,42 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   );
 
   const importTransactions = useCallback(
-    async (inputs: readonly TransactionInput[], mode: 'merge' | 'replace') => {
+    async (rows: readonly BackupRowInput[], mode: 'merge' | 'replace') => {
       if (!user) return { ok: false as const, message: 'Please sign in again to restore a backup.' };
       try {
         if (mode === 'replace') {
           await deleteAllTransactions(user.id);
         }
+
+        // Map each name in the backup onto a person, creating those that are new. Names
+        // are matched case-insensitively so "mother" and "Mother" do not become two pots.
+        const byName = new Map(people.map((person) => [person.name.toLowerCase(), person]));
+        const created: Person[] = [];
+        for (const row of rows) {
+          const key = row.personName.toLowerCase();
+          if (byName.has(key)) continue;
+          const person = await insertPerson(
+            { name: row.personName, relationship: row.personRelationship },
+            user.id,
+          );
+          byName.set(key, person);
+          created.push(person);
+        }
+        if (created.length > 0) {
+          setPeople((current) =>
+            [...current, ...created].sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        }
+
+        const inputs: TransactionInput[] = rows.map((row) => ({
+          person_id: byName.get(row.personName.toLowerCase())!.id,
+          transaction_date: row.transaction_date,
+          type: row.type,
+          amountPaise: row.amountPaise,
+          method: row.method,
+          note: row.note,
+        }));
+
         await insertTransactionsBatch(inputs, user.id);
         // Re-read from the database so local state matches exactly what was stored.
         await load();
@@ -267,7 +409,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [load, user],
+    [load, people, user],
   );
 
   const findTransaction = useCallback(
@@ -278,6 +420,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       transactions,
+      people,
+      personBalances,
+      addPerson,
+      editPerson,
+      removePerson,
       ledger,
       totals,
       status,
@@ -292,6 +439,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     }),
     [
       transactions,
+      people,
+      personBalances,
+      addPerson,
+      editPerson,
+      removePerson,
       ledger,
       totals,
       status,

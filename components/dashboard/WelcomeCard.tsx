@@ -9,10 +9,10 @@ import { Button } from '@/components/ui/Button';
 export function WelcomeCard({ onStart, onDismiss }: { onStart: () => void; onDismiss: () => void }) {
   return (
     <section className="card bg-brand-soft p-5">
-      <h2 className="text-lg font-semibold text-ink">Welcome to Mother&rsquo;s Money</h2>
+      <h2 className="text-lg font-semibold text-ink">Welcome to Potli</h2>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-muted">
-        Use this app to track the money your mother keeps with you. Let&rsquo;s record the first
-        transaction.
+        Keep track of money that family or friends have left with you, and what you have given
+        back. Let&rsquo;s record the first transaction.
       </p>
       <div className="mt-4 flex gap-3">
         <Button variant="ghost" onClick={onDismiss} className="px-3">

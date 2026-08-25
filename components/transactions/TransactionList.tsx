@@ -1,6 +1,7 @@
 'use client';
 
-import { Fragment } from 'react';
+import { Fragment, useMemo } from 'react';
+import { useLedger } from '@/components/providers/LedgerProvider';
 import { TransactionRow } from './TransactionRow';
 import { formatRelativeDate } from '@/lib/format/date';
 import type { TransactionWithBalance } from '@/types/transaction';
@@ -10,10 +11,22 @@ interface TransactionListProps {
   entries: readonly TransactionWithBalance[];
   onSelect?: (entry: TransactionWithBalance) => void;
   showBalance?: boolean;
+  /** Suppresses the person's name when the whole list is already one person's. */
+  hidePerson?: boolean;
 }
 
 /** Groups the ledger under date headings so scanning by day is easy on a phone. */
-export function TransactionList({ entries, onSelect, showBalance = true }: TransactionListProps) {
+export function TransactionList({
+  entries,
+  onSelect,
+  showBalance = true,
+  hidePerson = false,
+}: TransactionListProps) {
+  const { people } = useLedger();
+  const namesById = useMemo(
+    () => new Map(people.map((person) => [person.id, person.name])),
+    [people],
+  );
   let previousDate: string | null = null;
 
   return (
@@ -31,7 +44,14 @@ export function TransactionList({ entries, onSelect, showBalance = true }: Trans
               </li>
             ) : null}
             <li>
-              <TransactionRow entry={entry} onSelect={onSelect} showBalance={showBalance} />
+              <TransactionRow
+                entry={entry}
+                onSelect={onSelect}
+                showBalance={showBalance}
+                personName={
+                  hidePerson ? undefined : namesById.get(entry.transaction.person_id)
+                }
+              />
             </li>
           </Fragment>
         );

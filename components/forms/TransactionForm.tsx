@@ -8,6 +8,7 @@
 
 import { useMemo, useState } from 'react';
 import { AmountField, ChoiceGroup, Field, TextField } from '@/components/ui/Field';
+import { PersonPicker } from './PersonPicker';
 import { Button } from '@/components/ui/Button';
 import { formatRupees, parseAmountInput } from '@/lib/calculations/money';
 import { todayIso } from '@/lib/format/date';
@@ -42,11 +43,13 @@ const TYPE_CHOICES = TRANSACTION_TYPES.map((type) => ({
 export interface TransactionFormProps {
   /** Fixed for a new transaction; editable when editing an existing one. */
   type: TransactionType;
+  /** Preselected person, e.g. when recording from a person's own screen. */
+  initialPersonId?: string;
+  /** Balance available for the chosen person, in paise, keyed by person id. */
+  balanceForPerson: (personId: string) => number;
   allowTypeChange?: boolean;
   initial?: Transaction;
   submitLabel: string;
-  /** Balance available to return, in paise, excluding the transaction being edited. */
-  availableBalancePaise: number;
   onSubmit: (
     input: TransactionInput,
     options?: { force?: boolean },
@@ -58,13 +61,15 @@ export function TransactionForm({
   type: initialType,
   allowTypeChange = false,
   initial,
+  initialPersonId,
   submitLabel,
-  availableBalancePaise,
+  balanceForPerson,
   onSubmit,
   onCancel,
 }: TransactionFormProps) {
   const online = useOnlineStatus();
   const [type, setType] = useState<TransactionType>(initial?.type ?? initialType);
+  const [personId, setPersonId] = useState(initial?.person_id ?? initialPersonId ?? '');
   const [amount, setAmount] = useState(() =>
     initial ? stripTrailingPaise(initial.amount) : '',
   );
@@ -78,6 +83,7 @@ export function TransactionForm({
   const [saving, setSaving] = useState(false);
 
   const amountPaise = parseAmountInput(amount);
+  const availableBalancePaise = personId === '' ? 0 : balanceForPerson(personId);
 
   /** Live preview so the user sees the consequence before committing. */
   const projectedBalancePaise = useMemo(() => {
@@ -93,6 +99,7 @@ export function TransactionForm({
     setFormError(null);
     setOverridable(false);
     const result = validateTransactionForm({
+      person_id: personId,
       amount,
       transaction_date: date,
       type,
@@ -125,13 +132,15 @@ export function TransactionForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <PersonPicker value={personId} onChange={setPersonId} error={errors.person} />
+
       <AmountField
         value={amount}
         onChange={setAmount}
         error={errors.amount}
         autoFocus={!initial}
         hint={
-          amountPaise !== null && amountPaise > 0
+          amountPaise !== null && amountPaise > 0 && personId !== ''
             ? `Balance after this: ${formatRupees(projectedBalancePaise)}`
             : undefined
         }

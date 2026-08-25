@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthGate } from '@/components/layout/AuthGate';
@@ -31,6 +31,12 @@ function Transactions() {
   const [filter, setFilter] = useState<LedgerFilter>(EMPTY_FILTER);
   const [period, setPeriod] = useState<PeriodKey>('ALL');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Arriving from a person's row on the dashboard pre-selects them.
+  useEffect(() => {
+    const personId = new URLSearchParams(window.location.search).get('person');
+    if (personId) setFilter((current) => ({ ...current, personId }));
+  }, []);
   const [selected, setSelected] = useState<TransactionWithBalance | null>(null);
   const [sheet, setSheet] = useState<SheetMode | null>(null);
 
@@ -111,7 +117,7 @@ function Transactions() {
               </Button>
             ) : (
               <p className="mt-2 text-sm text-ink-muted">
-                Record money received from your mother on the home screen.
+                Record money someone has left with you from the home screen.
               </p>
             )}
           </div>
@@ -119,7 +125,11 @@ function Transactions() {
 
         {visible.length > 0 ? (
           <div className="card overflow-hidden p-0">
-            <TransactionList entries={visible} onSelect={setSelected} />
+            <TransactionList
+              entries={visible}
+              onSelect={setSelected}
+              hidePerson={filter.personId !== null}
+            />
           </div>
         ) : null}
 

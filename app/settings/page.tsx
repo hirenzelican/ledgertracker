@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, SectionHeading } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
+import { ManagePeople } from '@/components/settings/ManagePeople';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTheme, type ThemePreference } from '@/components/providers/ThemeProvider';
@@ -36,7 +37,7 @@ export default function SettingsPage() {
 
 function Settings() {
   const { user, signOut } = useAuth();
-  const { transactions, totals } = useLedger();
+  const { transactions, totals, people } = useLedger();
   const { preference, setPreference } = useTheme();
   const { showToast } = useToast();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
@@ -48,8 +49,8 @@ function Settings() {
     }
     const today = todayIso();
     downloadTextFile(
-      timestampedFilename('mothers-money-transactions', 'csv', today),
-      transactionsToCsv(transactions),
+      timestampedFilename('potli-transactions', 'csv', today),
+      transactionsToCsv(transactions, people),
       'text/csv',
     );
     showToast({ tone: 'success', title: 'CSV file downloaded.' });
@@ -62,8 +63,8 @@ function Settings() {
     }
     const today = todayIso();
     downloadTextFile(
-      timestampedFilename('mothers-money-backup', 'json', today),
-      serializeBackup(buildBackup(transactions, new Date().toISOString())),
+      timestampedFilename('potli-backup', 'json', today),
+      serializeBackup(buildBackup(transactions, people, new Date().toISOString())),
       'application/json',
     );
     showToast({
@@ -86,6 +87,13 @@ function Settings() {
             <Button variant="secondary" size="lg" className="w-full" onClick={() => setConfirmSignOut(true)}>
               Log out
             </Button>
+          </Card>
+        </section>
+
+        <section>
+          <SectionHeading>People</SectionHeading>
+          <Card>
+            <ManagePeople />
           </Card>
         </section>
 
@@ -158,7 +166,7 @@ function Settings() {
           <Card className="space-y-2 text-[15px]">
             <div className="flex justify-between">
               <span className="text-ink-muted">Application</span>
-              <span className="text-ink">Mother&rsquo;s Money</span>
+              <span className="text-ink">Potli</span>
             </div>
             <div className="flex justify-between">
               <span className="text-ink-muted">Version</span>

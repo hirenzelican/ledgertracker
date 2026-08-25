@@ -6,7 +6,8 @@ import { AuthGate } from '@/components/layout/AuthGate';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { useLedger } from '@/components/providers/LedgerProvider';
-import { buildStatement } from '@/lib/calculations/balance';
+import { buildStatement, forPerson } from '@/lib/calculations/balance';
+import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
 import { endOfMonth, formatDateRange, startOfMonth, todayIso } from '@/lib/format/date';
 
@@ -19,21 +20,52 @@ export default function StatementPage() {
 }
 
 function Statement() {
-  const { transactions, status } = useLedger();
+  const { transactions, status, people } = useLedger();
+  const [personId, setPersonId] = useState<string | null>(null);
   const today = todayIso();
   const [startDate, setStartDate] = useState(() => startOfMonth(today));
   const [endDate, setEndDate] = useState(() => endOfMonth(today));
 
   const invalidRange = startDate > endDate;
 
-  const statement = useMemo(
-    () => (invalidRange ? null : buildStatement(transactions, startDate, endDate)),
-    [transactions, startDate, endDate, invalidRange],
+  // A statement mixing several people would add up money that belongs to different
+  // pots, so the scope is always explicit: everyone, or one person.
+  const scoped = useMemo(
+    () => (personId === null ? transactions : forPerson(transactions, personId)),
+    [transactions, personId],
   );
+
+  const statement = useMemo(
+    () => (invalidRange ? null : buildStatement(scoped, startDate, endDate)),
+    [scoped, startDate, endDate, invalidRange],
+  );
+
+  const personName = people.find((person) => person.id === personId)?.name ?? null;
 
   return (
     <AppShell title="Statement" subtitle="Money in and out over a period">
       <div className="space-y-4">
+        {people.length > 1 ? (
+          <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Statement for">
+            {[{ id: null, name: 'Everyone' }, ...people].map((option) => (
+              <button
+                key={option.id ?? 'all'}
+                type="button"
+                aria-pressed={personId === option.id}
+                onClick={() => setPersonId(option.id)}
+                className={cn(
+                  'min-h-[38px] shrink-0 rounded-full border px-4 text-sm font-medium transition',
+                  personId === option.id
+                    ? 'border-brand bg-brand-soft text-ink'
+                    : 'border-border bg-surface text-ink-muted',
+                )}
+              >
+                {option.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
         <section className="card p-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -77,7 +109,9 @@ function Statement() {
         {statement ? (
           <>
             <section className="card p-5" aria-label="Statement summary">
-              <h2 className="text-base font-semibold text-ink">Mother&rsquo;s Money statement</h2>
+              <h2 className="text-base font-semibold text-ink">
+                {personName ? `${personName}'s statement` : 'Statement for everyone'}
+              </h2>
               <p className="mt-0.5 text-sm text-ink-faint">
                 {formatDateRange(statement.startDate, statement.endDate)}
               </p>
@@ -116,7 +150,10 @@ function Statement() {
                 </p>
               ) : (
                 <div className="card overflow-hidden p-0">
-                  <TransactionList entries={[...statement.entries].reverse()} />
+                  <TransactionList
+                entries={[...statement.entries].reverse()}
+                hidePerson={personId !== null}
+              />
                 </div>
               )}
             </section>

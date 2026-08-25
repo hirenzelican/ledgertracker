@@ -8,13 +8,13 @@ import { Toaster } from '@/components/ui/Toaster';
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
 
 export const metadata: Metadata = {
-  title: "Mother's Money",
-  description: "A private ledger for the money my mother keeps with me.",
-  applicationName: "Mother's Money",
+  title: 'Potli',
+  description: 'Track money you are holding for family and friends.',
+  applicationName: 'Potli',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    title: 'Mom Money',
+    title: 'Potli',
     statusBarStyle: 'default',
   },
   icons: {
@@ -39,7 +39,7 @@ export const viewport: Viewport = {
  * Applied before paint so a dark-mode user never sees a white flash on launch.
  * Kept inline and tiny; it only reads one localStorage key.
  */
-const THEME_BOOTSTRAP = `(function(){try{var p=localStorage.getItem('mothers-money-theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
+const THEME_BOOTSTRAP = `(function(){try{var p=localStorage.getItem('potli-theme')||'system';var d=p==='dark'||(p==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

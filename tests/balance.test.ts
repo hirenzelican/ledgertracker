@@ -3,14 +3,16 @@ import { test } from 'node:test';
 import {
   buildRunningBalances,
   buildStatement,
+  calculatePersonBalances,
   calculateTotals,
+  forPerson,
   firstNegativeBalanceDate,
   projectedBalancePaise,
   sortChronological,
   toLedgerEntries,
 } from '@/lib/calculations/balance';
 import { formatRupees } from '@/lib/calculations/money';
-import { makeTransaction } from './helpers';
+import { makePerson, makeTransaction } from './helpers';
 
 /** The worked example from the specification. */
 const LEDGER = [
@@ -236,4 +238,60 @@ test('same-day ordering decides whether a back-dated entry is valid', () => {
     ]),
     '2026-08-20',
   );
+});
+
+test('balances are derived per person, never pooled', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'p-mother');
+  const brother = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const ledger = [
+    makeTransaction({ personId: mother.id, date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ personId: brother.id, date: '2026-08-02', type: 'RECEIVED', amount: '4000.00' }),
+    makeTransaction({ personId: mother.id, date: '2026-08-03', type: 'RETURNED', amount: '2000.00' }),
+  ];
+
+  const balances = calculatePersonBalances([mother, brother], ledger);
+  // Ordered by who is holding the most.
+  assert.deepEqual(
+    balances.map((entry) => [entry.person.name, entry.balancePaise]),
+    [
+      ['Mother', 800_000],
+      ['Ravi', 400_000],
+    ],
+  );
+  assert.equal(balances[0]?.count, 2);
+  assert.equal(balances[1]?.lastTransactionDate, '2026-08-02');
+
+  // The overall total still sums everyone.
+  assert.equal(calculateTotals(ledger).balancePaise, 1_200_000);
+});
+
+test('one person cannot return money held for another', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'p-mother');
+  const brother = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const ledger = [
+    makeTransaction({ personId: mother.id, date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ personId: brother.id, date: '2026-08-02', type: 'RECEIVED', amount: '1000.00' }),
+  ];
+
+  // ₹5,000 back to the brother is impossible even though the ledger holds ₹11,000.
+  const brotherOnly = forPerson(ledger, brother.id);
+  assert.equal(
+    projectedBalancePaise(brotherOnly, { include: { type: 'RETURNED', amountPaise: 500_000 } }),
+    -400_000,
+  );
+  // The same amount back to the mother is fine.
+  const motherOnly = forPerson(ledger, mother.id);
+  assert.equal(
+    projectedBalancePaise(motherOnly, { include: { type: 'RETURNED', amountPaise: 500_000 } }),
+    500_000,
+  );
+});
+
+test('people with no transactions still appear, at zero', () => {
+  const friend = makePerson('Priya', 'FRIEND', 'p-priya');
+  const balances = calculatePersonBalances([friend], []);
+  assert.equal(balances.length, 1);
+  assert.equal(balances[0]?.balancePaise, 0);
+  assert.equal(balances[0]?.count, 0);
+  assert.equal(balances[0]?.lastTransactionDate, null);
 });

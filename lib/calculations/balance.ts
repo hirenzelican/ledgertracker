@@ -8,6 +8,8 @@
 
 import type {
   LedgerTotals,
+  Person,
+  PersonBalance,
   Transaction,
   TransactionType,
   TransactionWithBalance,
@@ -77,6 +79,48 @@ export function calculateTotals(transactions: readonly Transaction[]): LedgerTot
     count: transactions.length,
     lastTransactionDate,
   };
+}
+
+/** Only the transactions belonging to one person. */
+export function forPerson(
+  transactions: readonly Transaction[],
+  personId: string,
+): Transaction[] {
+  return transactions.filter((transaction) => transaction.person_id === personId);
+}
+
+/**
+ * Per-person figures for the dashboard, ordered by who is holding the most - the person
+ * whose money you hold most of is the one you most need to be reminded about.
+ * Everyone is listed, including people with no transactions yet.
+ */
+export function calculatePersonBalances(
+  people: readonly Person[],
+  transactions: readonly Transaction[],
+): PersonBalance[] {
+  const byPerson = new Map<string, Transaction[]>();
+  for (const transaction of transactions) {
+    const bucket = byPerson.get(transaction.person_id);
+    if (bucket) bucket.push(transaction);
+    else byPerson.set(transaction.person_id, [transaction]);
+  }
+
+  return people
+    .map((person) => {
+      const totals = calculateTotals(byPerson.get(person.id) ?? []);
+      return {
+        person,
+        balancePaise: totals.balancePaise,
+        receivedPaise: totals.receivedPaise,
+        returnedPaise: totals.returnedPaise,
+        count: totals.count,
+        lastTransactionDate: totals.lastTransactionDate,
+      };
+    })
+    .sort((a, b) => {
+      if (a.balancePaise !== b.balancePaise) return b.balancePaise - a.balancePaise;
+      return a.person.name.localeCompare(b.person.name);
+    });
 }
 
 /** Current balance in paise, derived from the full transaction list. */

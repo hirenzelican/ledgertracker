@@ -9,7 +9,8 @@ import { paiseToRupeeString } from '@/lib/calculations/money';
 import type { Transaction, TransactionInput } from '@/types/transaction';
 
 const TABLE = 'transactions';
-const COLUMNS = 'id,user_id,transaction_date,type,amount,method,note,created_at,updated_at';
+const COLUMNS =
+  'id,user_id,person_id,transaction_date,type,amount,method,note,created_at,updated_at';
 
 /**
  * Loads the whole ledger, oldest first. A personal ledger stays small (hundreds of
@@ -32,6 +33,7 @@ export async function fetchTransactions(): Promise<Transaction[]> {
 
 function toRow(input: TransactionInput) {
   return {
+    person_id: input.person_id,
     transaction_date: input.transaction_date,
     type: input.type,
     amount: paiseToRupeeString(input.amountPaise),

@@ -1,7 +1,7 @@
 {
-  "name": "Mother's Money",
-  "short_name": "Mom Money",
-  "description": "A private ledger for the money my mother keeps with me.",
+  "name": "Potli",
+  "short_name": "Potli",
+  "description": "Track money you are holding for family and friends.",
   "id": "/",
   "start_url": "/",
   "scope": "/",
