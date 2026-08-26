@@ -11,13 +11,8 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees } from '@/lib/calculations/money';
 import { describePersonBalance } from '@/lib/calculations/balance';
-import {
-  TYPE_LABELS,
-  TYPE_TITLES,
-  type Transaction,
-  type TransactionInput,
-  type TransactionType,
-} from '@/types/transaction';
+import type { Transaction, TransactionInput, TransactionType } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 export type SheetMode =
   | { kind: 'create'; type: TransactionType; personId?: string }
@@ -30,14 +25,10 @@ interface TransactionSheetProps {
 
 export type { SheetMode as TransactionSheetMode };
 
-/** "Ravi" -> "Ravi's"; falls back to "Their" when the person is somehow unknown. */
-function possessive(name: string | undefined): string {
-  return name ? `${name}'s` : 'Their';
-}
-
 export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
   const { addTransaction, editTransaction, balanceIfApplied, people } = useLedger();
   const { showToast } = useToast();
+  const { t } = useTranslation();
 
   if (!mode) return null;
 
@@ -50,9 +41,9 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
   const balanceForPerson = (personId: string) =>
     balanceIfApplied(personId, { excludeId: editingId });
 
-  const title = isEdit ? 'Edit transaction' : TYPE_TITLES[type];
+  const title = isEdit ? t('form.editTitle') : t(`type.${type}.action`);
 
-  const submitLabel = isEdit ? 'SAVE CHANGES' : `SAVE ${TYPE_LABELS[type].toUpperCase()}`;
+  const submitLabel = isEdit ? t('form.saveChanges') : t('form.save');
 
   const handleSubmit = async (input: TransactionInput, options?: { force?: boolean }) => {
     const newBalancePaise = balanceIfApplied(input.person_id, {
@@ -71,12 +62,11 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
 
     showToast({
       tone: 'success',
-      title: isEdit
-        ? `Transaction updated - ${formatRupees(input.amountPaise)} ${TYPE_LABELS[input.type].toLowerCase()}.`
-        : `${formatRupees(input.amountPaise)} ${TYPE_LABELS[input.type].toLowerCase()} successfully.`,
+      title: `${formatRupees(input.amountPaise)} · ${t(`type.${input.type}.short`)}`,
       description: describePersonBalance(
-        people.find((person) => person.id === input.person_id)?.name ?? 'them',
+        people.find((person) => person.id === input.person_id)?.name ?? '',
         newBalancePaise,
+        t,
       ),
     });
     onClose();

@@ -11,11 +11,24 @@
   "theme_color": "#0d6c5c",
   "lang": "en-IN",
   "dir": "ltr",
-  "categories": ["finance", "utilities"],
+  "categories": [
+    "finance",
+    "utilities"
+  ],
   "prefer_related_applications": false,
   "icons": [
-    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
     {
       "src": "/icons/icon-maskable-512.png",
       "sizes": "512x512",
@@ -25,16 +38,26 @@
   ],
   "shortcuts": [
     {
-      "name": "Record money received",
-      "short_name": "Received",
+      "name": "They gave me money to keep",
+      "short_name": "They gave me",
       "url": "/?action=received",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
-      "name": "Record money returned",
-      "short_name": "Returned",
-      "url": "/?action=returned",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+      "name": "I lent them my money",
+      "short_name": "I lent them",
+      "url": "/?action=lent",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

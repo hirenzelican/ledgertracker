@@ -12,6 +12,11 @@ import { ManagePeople } from '@/components/settings/ManagePeople';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTheme, type ThemePreference } from '@/components/providers/ThemeProvider';
+import {
+  LOCALES,
+  LOCALE_NAMES,
+  useTranslation,
+} from '@/components/providers/LanguageProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { buildBackup, serializeBackup } from '@/lib/export/backup';
 import { transactionsToCsv } from '@/lib/export/csv';
@@ -21,10 +26,13 @@ import { cn } from '@/lib/cn';
 
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION ?? '1.0.0';
 
-const THEME_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
+const THEME_OPTIONS: {
+  value: ThemePreference;
+  labelKey: 'settings.theme.system' | 'settings.theme.light' | 'settings.theme.dark';
+}[] = [
+  { value: 'system', labelKey: 'settings.theme.system' },
+  { value: 'light', labelKey: 'settings.theme.light' },
+  { value: 'dark', labelKey: 'settings.theme.dark' },
 ];
 
 export default function SettingsPage() {
@@ -40,11 +48,12 @@ function Settings() {
   const { transactions, totals, people } = useLedger();
   const { preference, setPreference } = useTheme();
   const { showToast } = useToast();
+  const { t, locale, setLocale } = useTranslation();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
   const exportCsv = () => {
     if (transactions.length === 0) {
-      showToast({ tone: 'info', title: 'There are no transactions to export yet.' });
+      showToast({ tone: 'info', title: t('settings.nothingToExport') });
       return;
     }
     const today = todayIso();
@@ -53,12 +62,12 @@ function Settings() {
       transactionsToCsv(transactions, people),
       'text/csv',
     );
-    showToast({ tone: 'success', title: 'CSV file downloaded.' });
+    showToast({ tone: 'success', title: t('settings.csvDownloaded') });
   };
 
   const exportJson = () => {
     if (transactions.length === 0) {
-      showToast({ tone: 'info', title: 'There are no transactions to back up yet.' });
+      showToast({ tone: 'info', title: t('settings.nothingToExport') });
       return;
     }
     const today = todayIso();
@@ -69,56 +78,82 @@ function Settings() {
     );
     showToast({
       tone: 'success',
-      title: 'Backup downloaded.',
-      description: `${transactions.length} ${transactions.length === 1 ? 'transaction' : 'transactions'} saved.`,
+      title: t('settings.backupDownloaded'),
+      description: t('settings.backupCount', { count: transactions.length }),
     });
   };
 
   return (
-    <AppShell title="Settings">
+    <AppShell title={t('settings.title')}>
       <div className="space-y-6">
         <section>
-          <SectionHeading>Account</SectionHeading>
+          <SectionHeading>{t('settings.account')}</SectionHeading>
           <Card className="space-y-4">
             <div>
-              <p className="text-sm text-ink-faint">Signed in as</p>
-              <p className="break-all text-[15px] font-medium text-ink">{user?.email ?? '—'}</p>
+              <p className="text-sm text-ink-faint">{t('settings.signedInAs')}</p>
+              <p className="break-all text-[15px] font-medium text-ink">{user?.email ?? t('common.none')}</p>
             </div>
             <Button variant="secondary" size="lg" className="w-full" onClick={() => setConfirmSignOut(true)}>
-              Log out
+              {t('settings.logout')}
             </Button>
           </Card>
         </section>
 
         <section>
-          <SectionHeading>People</SectionHeading>
+          <SectionHeading>{t('settings.people')}</SectionHeading>
           <Card>
             <ManagePeople />
           </Card>
         </section>
 
         <section>
-          <SectionHeading>Data</SectionHeading>
+          <SectionHeading>{t('settings.data')}</SectionHeading>
           <Card className="space-y-3">
             <p className="text-sm text-ink-muted">
-              {totals.count} {totals.count === 1 ? 'transaction' : 'transactions'} stored in
-              Supabase. Keep a backup somewhere safe.
+              {t('settings.dataSummary', { count: totals.count })}
             </p>
             <Button variant="secondary" size="lg" className="w-full" onClick={exportCsv}>
-              Export CSV
+              {t('settings.exportCsv')}
             </Button>
             <Button variant="secondary" size="lg" className="w-full" onClick={exportJson}>
-              Export JSON backup
+              {t('settings.exportJson')}
             </Button>
             <ImportBackup />
           </Card>
         </section>
 
         <section>
-          <SectionHeading>Application</SectionHeading>
+          <SectionHeading>{t('settings.application')}</SectionHeading>
           <Card className="space-y-5">
             <fieldset>
-              <legend className="field-label">Theme</legend>
+              <legend className="field-label">{t('settings.language')}</legend>
+              <div className="grid grid-cols-2 gap-2">
+                {LOCALES.map((option) => (
+                  <label
+                    key={option}
+                    className={cn(
+                      'flex min-h-[46px] cursor-pointer items-center justify-center rounded-xl border text-sm font-medium transition',
+                      locale === option
+                        ? 'border-brand bg-brand-soft text-ink'
+                        : 'border-border bg-surface text-ink-muted',
+                    )}
+                  >
+                    <input
+                      type="radio"
+                      name="language"
+                      value={option}
+                      checked={locale === option}
+                      onChange={() => setLocale(option)}
+                      className="sr-only"
+                    />
+                    {LOCALE_NAMES[option]}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend className="field-label">{t('settings.theme')}</legend>
               <div className="grid grid-cols-3 gap-2">
                 {THEME_OPTIONS.map((option) => (
                   <label
@@ -138,22 +173,22 @@ function Settings() {
                       onChange={() => setPreference(option.value)}
                       className="sr-only"
                     />
-                    {option.label}
+                    {t(option.labelKey)}
                   </label>
                 ))}
               </div>
             </fieldset>
 
             <div className="flex items-center justify-between">
-              <span className="text-[15px] text-ink">Currency</span>
-              <span className="text-[15px] font-medium text-ink-muted">Indian Rupee (₹)</span>
+              <span className="text-[15px] text-ink">{t('settings.currency')}</span>
+              <span className="text-[15px] font-medium text-ink-muted">{t('settings.currencyValue')}</span>
             </div>
 
             <Link
               href="/statement/"
               className="flex min-h-[46px] items-center justify-between rounded-xl border border-border px-4 text-[15px] text-ink"
             >
-              Statement
+              {t('history.statement')}
               <span aria-hidden="true" className="text-ink-faint">
                 →
               </span>
@@ -162,14 +197,14 @@ function Settings() {
         </section>
 
         <section>
-          <SectionHeading>About</SectionHeading>
+          <SectionHeading>{t('settings.about')}</SectionHeading>
           <Card className="space-y-2 text-[15px]">
             <div className="flex justify-between">
-              <span className="text-ink-muted">Application</span>
-              <span className="text-ink">Potli</span>
+              <span className="text-ink-muted">{t('settings.appLabel')}</span>
+              <span className="text-ink">{t('app.name')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-ink-muted">Version</span>
+              <span className="text-ink-muted">{t('settings.version')}</span>
               <span className="tnum text-ink">{APP_VERSION}</span>
             </div>
           </Card>
@@ -178,9 +213,9 @@ function Settings() {
 
       <ConfirmDialog
         open={confirmSignOut}
-        title="Log out"
-        message="You will need to sign in again to see your balance. Your transactions stay safely in Supabase."
-        confirmLabel="Log out"
+        title={t('settings.logoutTitle')}
+        message={t('settings.logoutMessage')}
+        confirmLabel={t('settings.logout')}
         onConfirm={() => void signOut()}
         onCancel={() => setConfirmSignOut(false)}
       />

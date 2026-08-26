@@ -1,6 +1,7 @@
 'use client';
 
 import { useToast, type ToastTone } from '@/components/providers/ToastProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { cn } from '@/lib/cn';
 
 const TONE_STYLES: Record<ToastTone, string> = {
@@ -34,12 +35,13 @@ function ToneIcon({ tone }: { tone: ToastTone }) {
  */
 export function Toaster() {
   const { toasts, dismissToast } = useToast();
+  const { t } = useTranslation();
 
   return (
     <div
       className="pointer-events-none fixed inset-x-0 bottom-[calc(58px+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-3 pb-3"
       role="region"
-      aria-label="Notifications"
+      aria-label={t('common.notifications')}
     >
       <div aria-live="polite" aria-atomic="false" className="contents">
         {toasts.map((toast) => (
@@ -61,7 +63,7 @@ export function Toaster() {
               type="button"
               onClick={() => dismissToast(toast.id)}
               className="-mr-1 -mt-1 flex h-8 w-8 items-center justify-center rounded-full text-ink-faint hover:bg-black/5"
-              aria-label="Dismiss notification"
+              aria-label={t('common.dismiss')}
             >
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

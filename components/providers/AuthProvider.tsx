@@ -11,7 +11,8 @@ import {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { toFriendlyAuthMessage } from '@/lib/supabase/errors';
+import { toAuthMessageKey } from '@/lib/supabase/errors';
+import { useTranslation } from './LanguageProvider';
 
 type AuthStatus = 'loading' | 'signed-in' | 'signed-out' | 'unconfigured';
 
@@ -28,6 +29,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<AuthStatus>(
     isSupabaseConfigured ? 'loading' : 'unconfigured',
   );
@@ -67,11 +69,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
       });
-      return error ? { error: toFriendlyAuthMessage(error) } : {};
+      return error ? { error: t(toAuthMessageKey(error)) } : {};
     } catch (error) {
-      return { error: toFriendlyAuthMessage(error) };
+      return { error: t(toAuthMessageKey(error)) };
     }
-  }, []);
+  }, [t]);
 
   const signUpWithPassword = useCallback(async (email: string, password: string) => {
     try {
@@ -79,13 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
       });
-      if (error) return { error: toFriendlyAuthMessage(error) };
+      if (error) return { error: t(toAuthMessageKey(error)) };
       // Supabase returns a user without a session when email confirmation is required.
       return { needsConfirmation: data.session === null };
     } catch (error) {
-      return { error: toFriendlyAuthMessage(error) };
+      return { error: t(toAuthMessageKey(error)) };
     }
-  }, []);
+  }, [t]);
 
   const sendMagicLink = useCallback(async (email: string) => {
     try {
@@ -95,11 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: typeof window === 'undefined' ? undefined : `${window.location.origin}/`,
         },
       });
-      return error ? { error: toFriendlyAuthMessage(error) } : {};
+      return error ? { error: t(toAuthMessageKey(error)) } : {};
     } catch (error) {
-      return { error: toFriendlyAuthMessage(error) };
+      return { error: t(toAuthMessageKey(error)) };
     }
-  }, []);
+  }, [t]);
 
   const signOut = useCallback(async () => {
     try {

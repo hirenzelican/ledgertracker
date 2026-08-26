@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { LedgerProvider } from '@/components/providers/LedgerProvider';
+import { LanguageProvider } from '@/components/providers/LanguageProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { Toaster } from '@/components/ui/Toaster';
@@ -50,15 +51,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <ThemeProvider>
-          <ToastProvider>
-            <AuthProvider>
-              <LedgerProvider>
-                {children}
-                <Toaster />
-                <ServiceWorkerRegistrar />
-              </LedgerProvider>
-            </AuthProvider>
-          </ToastProvider>
+          <LanguageProvider>
+            <ToastProvider>
+              <AuthProvider>
+                <LedgerProvider>
+                  {children}
+                  <Toaster />
+                  <ServiceWorkerRegistrar />
+                </LedgerProvider>
+              </AuthProvider>
+            </ToastProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -10,9 +10,11 @@ import { useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { LoadingPanel } from '@/components/ui/Spinner';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 export function AuthGate({ children }: { children: ReactNode }) {
   const { status } = useAuth();
+  const { t } = useTranslation();
   const router = useRouter();
 
   useEffect(() => {
@@ -22,12 +24,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (status === 'unconfigured') {
     return (
       <div className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6 text-center">
-        <h1 className="text-xl font-semibold text-ink">Not connected yet</h1>
-        <p className="text-[15px] leading-relaxed text-ink-muted">
-          Set <code className="rounded bg-surface px-1">NEXT_PUBLIC_SUPABASE_URL</code> and{' '}
-          <code className="rounded bg-surface px-1">NEXT_PUBLIC_SUPABASE_ANON_KEY</code>, then
-          rebuild the app. See the README for the full setup.
-        </p>
+        <h1 className="text-xl font-semibold text-ink">{t('login.notConnected')}</h1>
+        <p className="text-[15px] leading-relaxed text-ink-muted">{t('login.notConnectedBody')}</p>
       </div>
     );
   }
@@ -35,7 +33,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (status !== 'signed-in') {
     return (
       <div className="flex min-h-dvh items-center justify-center">
-        <LoadingPanel label="Loading..." />
+        <LoadingPanel label={t('common.loading')} />
       </div>
     );
   }

@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/Button';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import type { TransactionType } from '@/types/transaction';
 
 const WELCOME_KEY = 'potli-welcome-dismissed';
@@ -30,6 +31,7 @@ export default function DashboardPage() {
 
 function Dashboard() {
   const { ledger, totals, status, loadError, refresh, personBalances, standing } = useLedger();
+  const { t } = useTranslation();
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -44,8 +46,11 @@ function Dashboard() {
   // The installed app's home-screen shortcuts land here with ?action=received|returned.
   useEffect(() => {
     const action = new URLSearchParams(window.location.search).get('action');
-    if (action !== 'received' && action !== 'returned') return;
-    setSheet({ kind: 'create', type: action === 'received' ? 'RECEIVED' : 'RETURNED' });
+    const type = { received: 'RECEIVED', returned: 'RETURNED', lent: 'LENT', repaid: 'REPAID' }[
+      action ?? ''
+    ] as TransactionType | undefined;
+    if (!type) return;
+    setSheet({ kind: 'create', type });
     window.history.replaceState(null, '', window.location.pathname);
   }, []);
 
@@ -71,12 +76,12 @@ function Dashboard() {
 
   return (
     <AppShell
-      title="Potli"
+      title={t('app.name')}
       showLogo
       action={
         <Link
           href="/settings/"
-          aria-label="Settings"
+          aria-label={t('nav.settings')}
           className="flex h-10 w-10 items-center justify-center rounded-full text-ink-muted hover:bg-surface"
         >
           <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden="true">
@@ -101,7 +106,7 @@ function Dashboard() {
 
         {status === 'loading' ? (
           <div className="card">
-            <LoadingPanel label="Loading transactions..." />
+            <LoadingPanel label={t('history.loading')} />
           </div>
         ) : null}
 
@@ -109,7 +114,7 @@ function Dashboard() {
           <div className="card p-5 text-center">
             <p className="text-[15px] text-ink">{loadError}</p>
             <Button variant="secondary" className="mt-4" onClick={() => void refresh()}>
-              Try again
+              {t('common.tryAgain')}
             </Button>
           </div>
         ) : null}
@@ -118,9 +123,7 @@ function Dashboard() {
 
         {personBalances.length > 0 ? (
           <section>
-            <SectionHeading>
-              {personBalances.length === 1 ? 'Whose money' : "Whose money you're holding"}
-            </SectionHeading>
+            <SectionHeading>{t('dashboard.peopleHeading')}</SectionHeading>
             <div className="card overflow-hidden p-0">
               <PeopleBalances balances={personBalances} />
             </div>
@@ -129,7 +132,7 @@ function Dashboard() {
 
         {recent.length > 0 ? (
           <section>
-            <SectionHeading>Recent transactions</SectionHeading>
+            <SectionHeading>{t('dashboard.recentHeading')}</SectionHeading>
             <div className="card overflow-hidden p-0">
               <TransactionList entries={recent} />
             </div>
@@ -137,7 +140,7 @@ function Dashboard() {
               href="/transactions/"
               className="mt-3 flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface text-[15px] font-medium text-ink"
             >
-              View all transactions
+              {t('dashboard.viewAll')}
             </Link>
           </section>
         ) : null}

@@ -42,13 +42,15 @@ import {
   deleteAllTransactions,
   updateTransaction as updateTransactionRow,
 } from '@/lib/supabase/transactions';
-import { GENERIC_LOAD_ERROR, GENERIC_SAVE_ERROR, toFriendlyMessage } from '@/lib/supabase/errors';
+import { toMessageKey } from '@/lib/supabase/errors';
+import { useTranslation } from './LanguageProvider';
 import { formatRupees } from '@/lib/calculations/money';
 
 import type { BackupRowInput } from '@/lib/validation/backup';
 
 import { useAuth } from './AuthProvider';
 import type { Standing } from '@/lib/calculations/balance';
+import type { Translate } from '@/lib/i18n/locales';
 import type {
   LedgerTotals,
   Person,
@@ -136,6 +138,7 @@ function warnAboutConsequence(
   input: TransactionInput,
   excludeId: string | undefined,
   personName: string,
+  t: Translate,
 ): { message: string; overridable: boolean } | null {
   const remaining = forPerson(transactions, input.person_id).filter(
     (transaction) => transaction.id !== excludeId,
@@ -152,8 +155,12 @@ function warnAboutConsequence(
       overridable: true,
       message:
         before <= 0
-          ? `You are not holding any of ${personName}'s money. Saving this will show ${personName} owing you ${formatRupees(-after)} - record it as Lent instead if that is what happened.`
-          : `You are only holding ${formatRupees(held)} for ${personName}. The extra ${formatRupees(-after)} will show as ${personName} owing you.`,
+          ? t('warn.returnWithNothing', { name: personName, excess: formatRupees(-after) })
+          : t('warn.overReturn', {
+              name: personName,
+              held: formatRupees(held),
+              excess: formatRupees(-after),
+            }),
     };
   }
 
@@ -161,7 +168,11 @@ function warnAboutConsequence(
   if (input.type === 'REPAID' && after > 0 && before < 0) {
     return {
       overridable: true,
-      message: `${personName} only owed you ${formatRupees(-before)}. The extra ${formatRupees(after)} will show as their money that you are holding.`,
+      message: t('warn.overRepaid', {
+        name: personName,
+        owed: formatRupees(-before),
+        excess: formatRupees(after),
+      }),
     };
   }
 
@@ -170,6 +181,7 @@ function warnAboutConsequence(
 
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
+  const { t } = useTranslation();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -188,10 +200,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setStatus('ready');
     } catch (error) {
       if (currentRequest !== requestId.current) return;
-      setLoadError(toFriendlyMessage(error, GENERIC_LOAD_ERROR));
+      setLoadError(t(toMessageKey(error, 'error.load')));
       setStatus('error');
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (authStatus === 'signed-in') {
@@ -201,13 +213,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       setTransactions([]);
       setPeople([]);
       setStatus(authStatus === 'signed-out' ? 'ready' : 'error');
-      setLoadError(
-        authStatus === 'unconfigured'
-          ? 'This app is not connected to a database yet. Add your Supabase keys and rebuild.'
-          : null,
-      );
+      setLoadError(authStatus === 'unconfigured' ? t('error.notConfigured') : null);
     }
-  }, [authStatus, load]);
+  }, [authStatus, load, t]);
 
   const balanceIfApplied = useCallback(
     (
@@ -229,19 +237,20 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
 
   const addPerson = useCallback(
     async (input: PersonInput): Promise<PersonResult> => {
-      if (!user) return { ok: false, message: 'Please sign in again to add someone.' };
+      if (!user) return { ok: false, message: t('error.signInAgain') };
       try {
         const saved = await insertPerson(input, user.id);
         setPeople((current) => [...current, saved].sort((a, b) => a.name.localeCompare(b.name)));
         return { ok: true, person: saved };
       } catch (error) {
-        const message = (error as { code?: string }).code === '23505'
-          ? 'Someone with that name is already on your list.'
-          : toFriendlyMessage(error, 'Could not add that person. Please try again.');
+        const message =
+          (error as { code?: string }).code === '23505'
+            ? t('people.duplicate')
+            : t(toMessageKey(error, 'people.addFailed'));
         return { ok: false, message };
       }
     },
-    [user],
+    [t, user],
   );
 
   const editPerson = useCallback(
@@ -255,13 +264,14 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         );
         return { ok: true, person: saved };
       } catch (error) {
-        const message = (error as { code?: string }).code === '23505'
-          ? 'Someone with that name is already on your list.'
-          : toFriendlyMessage(error, 'Could not save that change. Please try again.');
+        const message =
+          (error as { code?: string }).code === '23505'
+            ? t('people.duplicate')
+            : t(toMessageKey(error, 'people.saveFailed'));
         return { ok: false, message };
       }
     },
-    [],
+    [t],
   );
 
   const removePerson = useCallback(
@@ -270,8 +280,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       if (transactions.some((transaction) => transaction.person_id === id)) {
         return {
           ok: false as const,
-          message:
-            'Delete their transactions first. Removing someone with history would erase the record of it.',
+          message: t('people.hasHistory'),
         };
       }
       try {
@@ -281,11 +290,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         return {
           ok: false as const,
-          message: toFriendlyMessage(error, 'Could not remove that person. Please try again.'),
+          message: t(toMessageKey(error, 'people.removeFailed')),
         };
       }
     },
-    [transactions],
+    [t, transactions],
   );
 
   const totals = useMemo(() => calculateTotals(transactions), [transactions]);
@@ -297,13 +306,14 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
 
   const addTransaction = useCallback(
     async (input: TransactionInput, options?: MutationOptions): Promise<MutationResult> => {
-      if (!user) return { ok: false, message: 'Please sign in again to save transactions.' };
+      if (!user) return { ok: false, message: t('error.signInAgain') };
 
       const rejection = warnAboutConsequence(
         transactions,
         input,
         undefined,
         nameOf(people, input.person_id),
+        t,
       );
       if (rejection && !(rejection.overridable && options?.allowUnusual)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
@@ -314,10 +324,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         setTransactions((current) => sortChronological([...current, saved]));
         return { ok: true, transaction: saved };
       } catch (error) {
-        return { ok: false, message: toFriendlyMessage(error, GENERIC_SAVE_ERROR) };
+        return { ok: false, message: t(toMessageKey(error, 'error.save')) };
       }
     },
-    [people, transactions, user],
+    [people, t, transactions, user],
   );
 
   const editTransaction = useCallback(
@@ -331,6 +341,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         input,
         id,
         nameOf(people, input.person_id),
+        t,
       );
       if (rejection && !(rejection.overridable && options?.allowUnusual)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
@@ -343,10 +354,10 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         );
         return { ok: true, transaction: saved };
       } catch (error) {
-        return { ok: false, message: toFriendlyMessage(error, GENERIC_SAVE_ERROR) };
+        return { ok: false, message: t(toMessageKey(error, 'error.save')) };
       }
     },
-    [people, transactions],
+    [people, t, transactions],
   );
 
   const removeTransaction = useCallback(
@@ -358,19 +369,16 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         return {
           ok: false as const,
-          message: toFriendlyMessage(
-            error,
-            'Something went wrong while deleting the transaction. Please try again.',
-          ),
+          message: t(toMessageKey(error, 'error.delete')),
         };
       }
     },
-    [],
+    [t],
   );
 
   const importTransactions = useCallback(
     async (rows: readonly BackupRowInput[], mode: 'merge' | 'replace') => {
-      if (!user) return { ok: false as const, message: 'Please sign in again to restore a backup.' };
+      if (!user) return { ok: false as const, message: t('error.signInAgain') };
       try {
         if (mode === 'replace') {
           await deleteAllTransactions(user.id);
@@ -413,14 +421,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         await load();
         return {
           ok: false as const,
-          message: toFriendlyMessage(
-            error,
-            'Something went wrong while restoring the backup. Please try again.',
-          ),
+          message: t(toMessageKey(error, 'error.importFailed')),
         };
       }
     },
-    [load, people, user],
+    [load, people, t, user],
   );
 
   const findTransaction = useCallback(

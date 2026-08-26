@@ -1,7 +1,8 @@
 'use client';
 
 import { cn } from '@/lib/cn';
-import { TYPE_DESCRIPTIONS, TYPE_LABELS, type TransactionType } from '@/types/transaction';
+import type { TransactionType } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 /**
  * The two-second path: tap, type an amount, save. Money can move for two reasons in each
@@ -20,6 +21,8 @@ const ACTIONS: {
 ];
 
 export function QuickActions({ onAction }: { onAction: (type: TransactionType) => void }) {
+  const { t } = useTranslation();
+
   return (
     <div className="grid grid-cols-2 gap-3">
       {ACTIONS.map((action) => (
@@ -35,13 +38,13 @@ export function QuickActions({ onAction }: { onAction: (type: TransactionType) =
           )}
         >
           <span className="flex items-center gap-1.5">
-            <span aria-hidden="true" className="text-xl font-bold leading-none">
+            <span aria-hidden="true" className="text-lg font-bold leading-none">
               {action.sign}
             </span>
-            <span className="text-[15px] font-semibold">{TYPE_LABELS[action.type]}</span>
+            <span className="text-[15px] font-semibold">{t(`type.${action.type}.action`)}</span>
           </span>
           <span className="text-[11px] font-medium opacity-90">
-            {TYPE_DESCRIPTIONS[action.type]}
+            {t(`type.${action.type}.caption`)}
           </span>
         </button>
       ))}

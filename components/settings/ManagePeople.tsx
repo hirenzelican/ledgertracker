@@ -14,16 +14,13 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees } from '@/lib/calculations/money';
 import { cn } from '@/lib/cn';
-import {
-  RELATIONSHIPS,
-  RELATIONSHIP_LABELS,
-  type Person,
-  type Relationship,
-} from '@/types/transaction';
+import { RELATIONSHIPS, type Person, type Relationship } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 export function ManagePeople() {
   const { personBalances, addPerson, editPerson, removePerson } = useLedger();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [editing, setEditing] = useState<Person | 'new' | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState<Person | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -38,7 +35,7 @@ export function ManagePeople() {
       showToast({ tone: 'error', title: result.message });
       return;
     }
-    showToast({ tone: 'success', title: `${confirmingDelete.name} removed.` });
+    showToast({ tone: 'success', title: t('people.removed', { name: confirmingDelete.name }) });
     setConfirmingDelete(null);
   };
 
@@ -47,7 +44,7 @@ export function ManagePeople() {
       <div className="space-y-3">
         {personBalances.length === 0 ? (
           <p className="text-sm text-ink-muted">
-            Nobody yet. The first person is added when you record a transaction.
+            {t('people.none')}
           </p>
         ) : (
           <ul className="divide-y divide-border">
@@ -56,8 +53,11 @@ export function ManagePeople() {
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[15px] font-medium text-ink">{person.name}</p>
                   <p className="text-sm text-ink-faint">
-                    {RELATIONSHIP_LABELS[person.relationship]} · {formatRupees(balancePaise)} ·{' '}
-                    {count} {count === 1 ? 'transaction' : 'transactions'}
+                    {t(`relationship.${person.relationship}`)} ·{' '}
+                    {formatRupees(Math.abs(balancePaise))} ·{' '}
+                    {count === 1
+                      ? t('person.transactionCountOne')
+                      : t('person.transactionCount', { count })}
                   </p>
                 </div>
                 <button
@@ -65,14 +65,14 @@ export function ManagePeople() {
                   onClick={() => setEditing(person)}
                   className="min-h-[40px] rounded-lg px-3 text-sm font-medium text-brand hover:bg-surface-sunken"
                 >
-                  Edit
+                  {t('entry.edit')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setConfirmingDelete(person)}
                   className="min-h-[40px] rounded-lg px-3 text-sm font-medium text-ink-muted hover:bg-surface-sunken"
                 >
-                  Remove
+                  {t('entry.delete')}
                 </button>
               </li>
             ))}
@@ -80,7 +80,7 @@ export function ManagePeople() {
         )}
 
         <Button variant="secondary" size="lg" className="w-full" onClick={() => setEditing('new')}>
-          Add a person
+          {t('people.add')}
         </Button>
       </div>
 
@@ -92,7 +92,7 @@ export function ManagePeople() {
             const result =
               editing === 'new' ? await addPerson(input) : await editPerson(editing.id, input);
             if (result.ok) {
-              showToast({ tone: 'success', title: `${result.person.name} saved.` });
+              showToast({ tone: 'success', title: t('people.saved', { name: result.person.name }) });
               setEditing(null);
             }
             return result;
@@ -102,9 +102,9 @@ export function ManagePeople() {
 
       <ConfirmDialog
         open={confirmingDelete !== null}
-        title="Remove person"
-        message={`Remove ${confirmingDelete?.name ?? ''} from your list? Their transactions must be deleted first.`}
-        confirmLabel="Remove"
+        title={t('people.removeTitle')}
+        message={t('people.removeMessage', { name: confirmingDelete?.name ?? '' })}
+        confirmLabel={t('entry.delete')}
         destructive
         busy={deleting}
         onConfirm={() => void handleDelete()}
@@ -130,34 +130,40 @@ function PersonSheet({
   const [relationship, setRelationship] = useState<Relationship>(person?.relationship ?? 'MOTHER');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { t } = useTranslation();
 
   const save = async () => {
     const trimmed = name.trim();
     if (trimmed === '') {
-      setError('Enter a name.');
+      setError(t('people.nameRequired'));
       return;
     }
     setSaving(true);
     setError(null);
     const result = await onSave({ name: trimmed, relationship });
     setSaving(false);
-    if (!result.ok) setError(result.message ?? 'Could not save. Please try again.');
+    if (!result.ok) setError(result.message ?? t('people.saveFailed'));
   };
 
   return (
-    <Sheet open title={person ? 'Edit person' : 'Add a person'} onClose={onClose} dismissible={!saving}>
+    <Sheet
+      open
+      title={person ? t('people.editTitle') : t('people.addTitle')}
+      onClose={onClose}
+      dismissible={!saving}
+    >
       <div className="space-y-4">
         <TextField
-          label="Name"
+          label={t('people.name')}
           value={name}
           onChange={(event) => setName(event.target.value)}
-          placeholder="Mother, Ravi, Priya..."
+          placeholder={t('people.namePlaceholder')}
           maxLength={60}
           autoComplete="off"
         />
 
         <div>
-          <span className="field-label">Relationship</span>
+          <span className="field-label">{t('people.relationship')}</span>
           <div className="flex flex-wrap gap-2">
             {RELATIONSHIPS.map((option) => (
               <button
@@ -172,7 +178,7 @@ function PersonSheet({
                     : 'border-border bg-surface text-ink-muted',
                 )}
               >
-                {RELATIONSHIP_LABELS[option]}
+                {t(`relationship.${option}`)}
               </button>
             ))}
           </div>
@@ -186,10 +192,10 @@ function PersonSheet({
 
         <div className="flex gap-3 pt-1">
           <Button variant="secondary" size="lg" className="flex-1" onClick={onClose} disabled={saving}>
-            Cancel
+            {t('common.cancel')}
           </Button>
-          <Button size="lg" className="flex-1" onClick={() => void save()} loading={saving} loadingLabel="Saving...">
-            Save
+          <Button size="lg" className="flex-1" onClick={() => void save()} loading={saving} loadingLabel={t('form.saving')}>
+            {t('common.save')}
           </Button>
         </div>
       </div>

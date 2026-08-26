@@ -7,6 +7,7 @@
  */
 
 import { TYPE_DIRECTION } from '@/types/transaction';
+import type { Translate } from '@/lib/i18n/locales';
 import type {
   LedgerTotals,
   Person,
@@ -129,11 +130,15 @@ export function calculatePersonBalances(
     });
 }
 
-/** "Holding ₹8,000 for Ravi" / "Ravi owes you ₹2,000" / "Settled up with Ravi". */
-export function describePersonBalance(name: string, balancePaise: number): string {
-  if (balancePaise > 0) return `Holding ${formatRupees(balancePaise)} for ${name}`;
-  if (balancePaise < 0) return `${name} owes you ${formatRupees(-balancePaise)}`;
-  return `Settled up with ${name}`;
+/** What a person's balance means, said in the reader's language. */
+export function describePersonBalance(name: string, balancePaise: number, t: Translate): string {
+  if (balancePaise > 0) {
+    return t('person.balance.holding', { name, amount: formatRupees(balancePaise) });
+  }
+  if (balancePaise < 0) {
+    return t('person.balance.owed', { name, amount: formatRupees(-balancePaise) });
+  }
+  return t('person.balance.settled', { name });
 }
 
 export interface Standing {

@@ -11,6 +11,7 @@ import { TransactionActions } from '@/components/transactions/TransactionActions
 import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
 import { TransactionFilters, type PeriodKey } from '@/components/transactions/TransactionFilters';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { EMPTY_FILTER, filterLedger, isFilterActive, type LedgerFilter } from '@/lib/calculations/filters';
 import { formatRupees } from '@/lib/calculations/money';
 import type { TransactionWithBalance } from '@/types/transaction';
@@ -28,6 +29,7 @@ export default function TransactionsPage() {
 
 function Transactions() {
   const { ledger, status, loadError, refresh } = useLedger();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<LedgerFilter>(EMPTY_FILTER);
   const [period, setPeriod] = useState<PeriodKey>('ALL');
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -60,11 +62,11 @@ function Transactions() {
 
   return (
     <AppShell
-      title="Transactions"
-      subtitle={`${filtered.length} ${filtered.length === 1 ? 'transaction' : 'transactions'}`}
+      title={t('history.title')}
+      subtitle={filtered.length === 1 ? t('history.countOne') : t('history.count', { count: filtered.length })}
       action={
         <Link href="/statement/" className="text-sm font-medium text-brand">
-          Statement
+          {t('history.statement')}
         </Link>
       }
     >
@@ -78,15 +80,16 @@ function Transactions() {
 
         {isFilterActive(filter) && filtered.length > 0 ? (
           <p className="tnum rounded-xl bg-surface px-4 py-2.5 text-sm text-ink-muted">
-            Received <span className="font-semibold text-received">{formatRupees(filteredTotals.received)}</span>
-            {' · '}
-            Returned <span className="font-semibold text-returned">{formatRupees(filteredTotals.returned)}</span>
+            {t('history.summary', {
+              in: formatRupees(filteredTotals.received),
+              out: formatRupees(filteredTotals.returned),
+            })}
           </p>
         ) : null}
 
         {status === 'loading' ? (
           <div className="card">
-            <LoadingPanel label="Loading transactions..." />
+            <LoadingPanel label={t('history.loading')} />
           </div>
         ) : null}
 
@@ -94,7 +97,7 @@ function Transactions() {
           <div className="card p-5 text-center">
             <p className="text-[15px] text-ink">{loadError}</p>
             <Button variant="secondary" className="mt-4" onClick={() => void refresh()}>
-              Try again
+              {t('common.tryAgain')}
             </Button>
           </div>
         ) : null}
@@ -102,7 +105,7 @@ function Transactions() {
         {status === 'ready' && filtered.length === 0 ? (
           <div className="card px-6 py-10 text-center">
             <p className="text-[15px] font-medium text-ink">
-              {ledger.length === 0 ? 'No transactions yet.' : 'No transactions match these filters.'}
+              {ledger.length === 0 ? t('history.empty') : t('history.emptyFiltered')}
             </p>
             {ledger.length > 0 ? (
               <Button
@@ -113,11 +116,11 @@ function Transactions() {
                   setPeriod('ALL');
                 }}
               >
-                Clear filters
+                {t('history.clearFilters')}
               </Button>
             ) : (
               <p className="mt-2 text-sm text-ink-muted">
-                Record money someone has left with you from the home screen.
+                {t('dashboard.empty.body')}
               </p>
             )}
           </div>
@@ -140,7 +143,7 @@ function Transactions() {
             className="w-full"
             onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
           >
-            Show {Math.min(PAGE_SIZE, filtered.length - visible.length)} more
+            {t('history.showMore', { count: Math.min(PAGE_SIZE, filtered.length - visible.length) })}
           </Button>
         ) : null}
       </div>

@@ -12,7 +12,7 @@ import {
 } from '@/lib/format/date';
 import { filterLedger, EMPTY_FILTER } from '@/lib/calculations/filters';
 import { buildRunningBalances } from '@/lib/calculations/balance';
-import { makeTransaction } from './helpers';
+import { makeTransaction, t } from './helpers';
 
 test('validates ISO calendar dates', () => {
   assert.ok(isIsoDate('2026-08-25'));
@@ -25,16 +25,16 @@ test('validates ISO calendar dates', () => {
 });
 
 test('formats dates for the interface', () => {
-  assert.equal(formatDisplayDate('2026-08-25'), '25 Aug 2026');
-  assert.equal(formatDisplayDate('2026-01-05'), '5 Jan 2026');
-  assert.equal(formatDateRange('2026-08-01', '2026-08-25'), '1 Aug 2026 – 25 Aug 2026');
+  assert.equal(formatDisplayDate('2026-08-25', t), '25 Aug 2026');
+  assert.equal(formatDisplayDate('2026-01-05', t), '5 Jan 2026');
+  assert.equal(formatDateRange('2026-08-01', '2026-08-25', t), '1 Aug 2026 – 25 Aug 2026');
 });
 
 test('shows Today and Yesterday relative to a given day', () => {
-  assert.equal(formatRelativeDate('2026-08-25', '2026-08-25'), 'Today');
-  assert.equal(formatRelativeDate('2026-08-24', '2026-08-25'), 'Yesterday');
-  assert.equal(formatRelativeDate('2026-08-20', '2026-08-25'), '20 Aug');
-  assert.equal(formatRelativeDate('2025-08-20', '2026-08-25'), '20 Aug 2025');
+  assert.equal(formatRelativeDate('2026-08-25', t, '2026-08-25'), 'Today');
+  assert.equal(formatRelativeDate('2026-08-24', t, '2026-08-25'), 'Yesterday');
+  assert.equal(formatRelativeDate('2026-08-20', t, '2026-08-25'), '20 Aug');
+  assert.equal(formatRelativeDate('2025-08-20', t, '2026-08-25'), '20 Aug 2025');
 });
 
 test('date arithmetic crosses month and year boundaries', () => {
@@ -55,7 +55,7 @@ test('filters by type, period and note search', () => {
   ]);
 
   assert.equal(filterLedger(ledger, EMPTY_FILTER).length, 3);
-  assert.equal(filterLedger(ledger, { ...EMPTY_FILTER, type: 'RETURNED' }).length, 1);
+  assert.equal(filterLedger(ledger, { ...EMPTY_FILTER, type: 'OUT' }).length, 1);
   assert.equal(
     filterLedger(ledger, { ...EMPTY_FILTER, from: '2026-08-01', to: '2026-08-31' }).length,
     2,
@@ -72,7 +72,7 @@ test('filtered rows keep their ledger-wide running balance', () => {
     makeTransaction({ date: '2026-08-02', type: 'RETURNED', amount: '2000.00' }),
     makeTransaction({ date: '2026-08-03', type: 'RECEIVED', amount: '5000.00' }),
   ]);
-  const onlyReceived = filterLedger(ledger, { ...EMPTY_FILTER, type: 'RECEIVED' });
+  const onlyReceived = filterLedger(ledger, { ...EMPTY_FILTER, type: 'IN' });
   assert.deepEqual(
     onlyReceived.map((entry) => entry.balanceAfterPaise),
     [1_000_000, 1_300_000],

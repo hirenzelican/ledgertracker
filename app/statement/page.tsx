@@ -6,6 +6,7 @@ import { AuthGate } from '@/components/layout/AuthGate';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { buildStatement, forPerson } from '@/lib/calculations/balance';
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
@@ -21,6 +22,7 @@ export default function StatementPage() {
 
 function Statement() {
   const { transactions, status, people } = useLedger();
+  const { t } = useTranslation();
   const [personId, setPersonId] = useState<string | null>(null);
   const today = todayIso();
   const [startDate, setStartDate] = useState(() => startOfMonth(today));
@@ -43,11 +45,11 @@ function Statement() {
   const personName = people.find((person) => person.id === personId)?.name ?? null;
 
   return (
-    <AppShell title="Statement" subtitle="Money in and out over a period">
+    <AppShell title={t('statement.title')} subtitle={t('statement.subtitle')}>
       <div className="space-y-4">
         {people.length > 1 ? (
           <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Statement for">
-            {[{ id: null, name: 'Everyone' }, ...people].map((option) => (
+            {[{ id: null, name: t('history.filter.everyone') }, ...people].map((option) => (
               <button
                 key={option.id ?? 'all'}
                 type="button"
@@ -70,7 +72,7 @@ function Statement() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="statement-start" className="field-label">
-                Start date
+                {t('statement.startDate')}
               </label>
               <input
                 id="statement-start"
@@ -82,7 +84,7 @@ function Statement() {
             </div>
             <div>
               <label htmlFor="statement-end" className="field-label">
-                End date
+                {t('statement.endDate')}
               </label>
               <input
                 id="statement-end"
@@ -95,43 +97,43 @@ function Statement() {
           </div>
           {invalidRange ? (
             <p role="alert" className="mt-3 text-sm font-medium text-danger">
-              The start date must be on or before the end date.
+              {t('statement.invalidRange')}
             </p>
           ) : null}
         </section>
 
         {status === 'loading' ? (
           <div className="card">
-            <LoadingPanel label="Loading transactions..." />
+            <LoadingPanel label={t('history.loading')} />
           </div>
         ) : null}
 
         {statement ? (
           <>
-            <section className="card p-5" aria-label="Statement summary">
+            <section className="card p-5" aria-label={t('statement.title')}>
               <h2 className="text-base font-semibold text-ink">
-                {personName ? `${personName}'s statement` : 'Statement for everyone'}
+                {personName ? t('statement.forPerson', { name: personName }) : t('statement.forEveryone')}
               </h2>
               <p className="mt-0.5 text-sm text-ink-faint">
-                {formatDateRange(statement.startDate, statement.endDate)}
+                {formatDateRange(statement.startDate, statement.endDate, t)}
               </p>
 
               <dl className="mt-5 space-y-3 text-[15px]">
-                <Line term="Opening balance">
+                <Line term={t('statement.opening')}>
                   <span className="tnum">{formatRupees(statement.openingBalancePaise)}</span>
                 </Line>
-                <Line term="Money received">
+                <Line term={t('statement.moneyIn')}>
                   <span className="tnum text-received">
                     + {formatRupees(statement.receivedPaise)}
                   </span>
                 </Line>
-                <Line term="Money returned">
+                <Line term={t('statement.moneyOut')}>
                   <span className="tnum text-returned">
                     − {formatRupees(statement.returnedPaise)}
                   </span>
                 </Line>
                 <div className="flex items-baseline justify-between gap-4 border-t-2 border-border pt-3">
-                  <dt className="font-semibold text-ink">Closing balance</dt>
+                  <dt className="font-semibold text-ink">{t('statement.closing')}</dt>
                   <dd className="tnum text-xl font-bold text-ink">
                     {formatRupees(statement.closingBalancePaise)}
                   </dd>
@@ -141,12 +143,13 @@ function Statement() {
 
             <section>
               <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">
-                {statement.entries.length}{' '}
-                {statement.entries.length === 1 ? 'transaction' : 'transactions'} in this period
+                {statement.entries.length === 1
+                  ? t('statement.entriesOne')
+                  : t('statement.entries', { count: statement.entries.length })}
               </h2>
               {statement.entries.length === 0 ? (
                 <p className="card px-6 py-8 text-center text-[15px] text-ink-muted">
-                  No transactions in this period.
+                  {t('statement.noEntries')}
                 </p>
               ) : (
                 <div className="card overflow-hidden p-0">

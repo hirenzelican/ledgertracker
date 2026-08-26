@@ -12,12 +12,8 @@ import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/Field';
 import { useLedger } from '@/components/providers/LedgerProvider';
-import {
-  RELATIONSHIPS,
-  RELATIONSHIP_LABELS,
-  type Person,
-  type Relationship,
-} from '@/types/transaction';
+import { RELATIONSHIPS, type Person, type Relationship } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 interface PersonPickerProps {
   value: string;
@@ -28,6 +24,7 @@ interface PersonPickerProps {
 
 export function PersonPicker({ value, onChange, error, disabled }: PersonPickerProps) {
   const { people, addPerson } = useLedger();
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(people.length === 0);
   const [name, setName] = useState('');
   const [relationship, setRelationship] = useState<Relationship>('MOTHER');
@@ -43,7 +40,7 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
   const create = async () => {
     const trimmed = name.trim();
     if (trimmed === '') {
-      setAddError('Enter a name.');
+      setAddError(t('people.nameRequired'));
       return;
     }
     setSaving(true);
@@ -62,7 +59,7 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
 
   return (
     <fieldset>
-      <legend className="field-label">Whose money is this?</legend>
+      <legend className="field-label">{t('form.whose')}</legend>
 
       {people.length > 0 ? (
         <div className="flex flex-wrap gap-2">
@@ -82,7 +79,7 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
             className="min-h-[44px] rounded-xl border border-dashed border-border px-4 text-sm font-medium text-ink-muted hover:bg-surface-sunken"
           >
             {/* Not "Cancel": the form has its own, and two of them is a coin toss. */}
-            {adding ? 'Close' : '+ Someone new'}
+            {adding ? t('people.close') : t('people.addNew')}
           </button>
         </div>
       ) : null}
@@ -90,15 +87,15 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
       {adding ? (
         <div className="mt-3 space-y-3 rounded-xl border border-border bg-surface-sunken p-3">
           <TextField
-            label="Name"
+            label={t('people.name')}
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Mother, Ravi, Priya..."
+            placeholder={t('people.namePlaceholder')}
             maxLength={60}
             autoComplete="off"
           />
           <div>
-            <span className="field-label">Relationship</span>
+            <span className="field-label">{t('people.relationship')}</span>
             <div className="flex flex-wrap gap-2">
               {RELATIONSHIPS.map((option) => (
                 <button
@@ -113,7 +110,7 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
                       : 'border-border bg-surface text-ink-muted',
                   )}
                 >
-                  {RELATIONSHIP_LABELS[option]}
+                  {t(`relationship.${option}`)}
                 </button>
               ))}
             </div>
@@ -128,9 +125,9 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
             className="w-full"
             onClick={() => void create()}
             loading={saving}
-            loadingLabel="Adding..."
+            loadingLabel={t('people.adding')}
           >
-            Add person
+            {t('people.add')}
           </Button>
         </div>
       ) : null}
@@ -155,6 +152,8 @@ function PersonChip({
   disabled?: boolean;
   onSelect: () => void;
 }) {
+  const { t } = useTranslation();
+
   return (
     <button
       type="button"
@@ -170,7 +169,7 @@ function PersonChip({
     >
       {person.name}
       <span className={cn('text-xs', selected ? 'text-ink-muted' : 'text-ink-faint')}>
-        {RELATIONSHIP_LABELS[person.relationship]}
+        {t(`relationship.${person.relationship}`)}
       </span>
     </button>
   );

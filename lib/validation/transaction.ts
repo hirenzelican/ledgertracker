@@ -5,6 +5,7 @@
  */
 
 import { MAX_AMOUNT_PAISE, formatRupees, parseAmountInput } from '@/lib/calculations/money';
+import type { Translate } from '@/lib/i18n/locales';
 import { isIsoDate } from '@/lib/format/date';
 import {
   isPaymentMethod,
@@ -46,36 +47,37 @@ export function sanitizeNote(note: string): string {
 
 export function validateTransactionForm(
   form: RawTransactionForm,
+  t: Translate,
 ): ValidationResult<TransactionInput> {
   const errors: Partial<Record<FieldName, string>> = {};
 
   const amountPaise = parseAmountInput(form.amount);
   if (amountPaise === null) {
-    errors.amount = 'Enter a valid amount, for example 1250.50.';
+    errors.amount = t('form.error.amount');
   } else if (amountPaise === 0) {
-    errors.amount = 'Amount must be more than zero.';
+    errors.amount = t('form.error.amountZero');
   } else if (amountPaise > MAX_AMOUNT_PAISE) {
-    errors.amount = `Amount cannot be more than ${formatRupees(MAX_AMOUNT_PAISE)}.`;
+    errors.amount = t('form.error.amountMax', { max: formatRupees(MAX_AMOUNT_PAISE) });
   }
 
   if (!isIsoDate(form.transaction_date)) {
-    errors.transaction_date = 'Choose a valid date.';
+    errors.transaction_date = t('form.error.date');
   }
 
   if (!isTransactionType(form.type)) {
-    errors.type = 'Choose whether this money was received or returned.';
+    errors.type = t('form.error.type');
   }
 
   if (!isPaymentMethod(form.method)) {
-    errors.method = 'Choose how the money moved.';
+    errors.method = t('form.error.method');
   }
 
   if (form.person_id.trim() === '') {
-    errors.person = 'Choose whose money this is.';
+    errors.person = t('form.error.person');
   }
 
   if (form.note.trim().length > MAX_NOTE_LENGTH) {
-    errors.note = `Note cannot be longer than ${MAX_NOTE_LENGTH} characters.`;
+    errors.note = t('form.error.note', { max: MAX_NOTE_LENGTH });
   }
 
   if (Object.keys(errors).length > 0 || amountPaise === null) {

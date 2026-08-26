@@ -12,7 +12,7 @@ import {
   sortChronological,
 } from '@/lib/calculations/balance';
 import { formatRupees } from '@/lib/calculations/money';
-import { makePerson, makeTransaction } from './helpers';
+import { makePerson, makeTransaction, t } from './helpers';
 
 /** The worked example from the specification. */
 const LEDGER = [
@@ -254,20 +254,21 @@ test('lending drives the balance negative, meaning they owe me', () => {
   ];
   const [balance] = calculatePersonBalances([ravi], ledger);
   assert.equal(balance?.balancePaise, -500_000);
-  assert.equal(describePersonBalance('Ravi', balance!.balancePaise), 'Ravi owes you ₹5,000');
+  assert.equal(describePersonBalance('Ravi', balance!.balancePaise, t), 'Ravi owes you ₹5,000');
 
   // Repaying half leaves half outstanding.
   const afterPartial = projectedBalancePaise(ledger, {
     include: { type: 'REPAID', amountPaise: 250_000 },
   });
   assert.equal(afterPartial, -250_000);
-  assert.equal(describePersonBalance('Ravi', afterPartial), 'Ravi owes you ₹2,500');
+  assert.equal(describePersonBalance('Ravi', afterPartial, t), 'Ravi owes you ₹2,500');
 
   // Repaying it all settles up.
   assert.equal(
     describePersonBalance(
       'Ravi',
       projectedBalancePaise(ledger, { include: { type: 'REPAID', amountPaise: 500_000 } }),
+      t,
     ),
     'Settled up with Ravi',
   );

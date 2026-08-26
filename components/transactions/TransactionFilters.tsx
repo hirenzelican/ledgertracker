@@ -2,22 +2,30 @@
 
 import { cn } from '@/lib/cn';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { endOfMonth, shiftMonth, startOfMonth, todayIso } from '@/lib/format/date';
 import type { LedgerFilter, TypeFilter } from '@/lib/calculations/filters';
 
-const TYPE_TABS: { value: TypeFilter; label: string }[] = [
-  { value: 'ALL', label: 'All' },
-  { value: 'RECEIVED', label: 'Received' },
-  { value: 'RETURNED', label: 'Returned' },
+const TYPE_TABS: { value: TypeFilter; labelKey: 'history.filter.all' | 'history.filter.in' | 'history.filter.out' }[] = [
+  { value: 'ALL', labelKey: 'history.filter.all' },
+  { value: 'IN', labelKey: 'history.filter.in' },
+  { value: 'OUT', labelKey: 'history.filter.out' },
 ];
 
 type PeriodKey = 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'CUSTOM';
 
-const PERIOD_TABS: { value: PeriodKey; label: string }[] = [
-  { value: 'ALL', label: 'All time' },
-  { value: 'THIS_MONTH', label: 'This month' },
-  { value: 'LAST_MONTH', label: 'Last month' },
-  { value: 'CUSTOM', label: 'Custom' },
+const PERIOD_TABS: {
+  value: PeriodKey;
+  labelKey:
+    | 'history.period.all'
+    | 'history.period.thisMonth'
+    | 'history.period.lastMonth'
+    | 'history.period.custom';
+}[] = [
+  { value: 'ALL', labelKey: 'history.period.all' },
+  { value: 'THIS_MONTH', labelKey: 'history.period.thisMonth' },
+  { value: 'LAST_MONTH', labelKey: 'history.period.lastMonth' },
+  { value: 'CUSTOM', labelKey: 'history.period.custom' },
 ];
 
 interface TransactionFiltersProps {
@@ -44,13 +52,14 @@ export function TransactionFilters({
   onPeriodChange,
 }: TransactionFiltersProps) {
   const { people } = useLedger();
+  const { t } = useTranslation();
 
   return (
     <div className="space-y-3">
       {people.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filter by person">
           <FilterChip
-            label="Everyone"
+            label={t('history.filter.everyone')}
             selected={filter.personId === null}
             onClick={() => onChange({ ...filter, personId: null })}
           />
@@ -67,7 +76,7 @@ export function TransactionFilters({
 
       <div>
         <label htmlFor="transaction-search" className="sr-only">
-          Search notes
+          {t('history.search')}
         </label>
         <div className="relative">
           <svg
@@ -84,14 +93,14 @@ export function TransactionFilters({
             type="search"
             value={filter.search}
             onChange={(event) => onChange({ ...filter, search: event.target.value })}
-            placeholder="Search notes"
+            placeholder={t('history.search')}
             enterKeyHint="search"
             className="field-input pl-11"
           />
         </div>
       </div>
 
-      <div role="tablist" aria-label="Filter by type" className="flex gap-2">
+      <div role="tablist" aria-label={t('history.filter.all')} className="flex gap-2">
         {TYPE_TABS.map((tab) => (
           <button
             key={tab.value}
@@ -106,7 +115,7 @@ export function TransactionFilters({
                 : 'border-border bg-surface text-ink-muted',
             )}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -128,7 +137,7 @@ export function TransactionFilters({
                 : 'border-border bg-surface text-ink-muted',
             )}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -137,7 +146,7 @@ export function TransactionFilters({
         <div className="grid grid-cols-2 gap-2">
           <div>
             <label htmlFor="filter-from" className="field-label">
-              From
+              {t('history.from')}
             </label>
             <input
               id="filter-from"
@@ -149,7 +158,7 @@ export function TransactionFilters({
           </div>
           <div>
             <label htmlFor="filter-to" className="field-label">
-              To
+              {t('history.to')}
             </label>
             <input
               id="filter-to"

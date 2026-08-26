@@ -15,12 +15,14 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { parseBackup, type ParsedBackup } from '@/lib/validation/backup';
 import { formatDisplayDate } from '@/lib/format/date';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export function ImportBackup() {
   const { transactions, importTransactions, people } = useLedger();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
   const [pending, setPending] = useState<ParsedBackup | null>(null);
   const [mode, setMode] = useState<'merge' | 'replace'>('merge');
@@ -30,7 +32,7 @@ export function ImportBackup() {
   const handleFile = async (file: File) => {
     setError(null);
     if (file.size > MAX_FILE_BYTES) {
-      showToast({ tone: 'error', title: 'That backup file is too large to import.' });
+      showToast({ tone: 'error', title: t('import.tooLarge') });
       return;
     }
 
@@ -38,23 +40,21 @@ export function ImportBackup() {
     try {
       text = await file.text();
     } catch {
-      showToast({ tone: 'error', title: 'Could not read that file. Try choosing it again.' });
+      showToast({ tone: 'error', title: t('import.unreadable') });
       return;
     }
 
     const result = parseBackup(text, transactions, people);
     if (!result.ok) {
-      showToast({ tone: 'error', title: 'Invalid backup file', description: result.message });
+      showToast({ tone: 'error', title: t('import.invalid'), description: result.message });
       return;
     }
     if (result.value.newTransactions.length === 0) {
       showToast({
         tone: 'info',
-        title: 'Nothing to import.',
+        title: t('import.nothing'),
         description:
-          result.value.duplicates.length > 0
-            ? 'Every transaction in that backup is already in your ledger.'
-            : 'That backup contains no transactions.',
+          result.value.duplicates.length > 0 ? t('import.allDuplicates') : t('import.emptyFile'),
       });
       return;
     }
@@ -78,10 +78,13 @@ export function ImportBackup() {
     setPending(null);
     showToast({
       tone: 'success',
-      title: `Imported ${result.imported} ${result.imported === 1 ? 'transaction' : 'transactions'}.`,
+      title:
+        result.imported === 1
+          ? t('import.doneOne')
+          : t('import.done', { count: result.imported }),
       description:
         pending.duplicates.length > 0
-          ? `${pending.duplicates.length} duplicate ${pending.duplicates.length === 1 ? 'entry was' : 'entries were'} skipped.`
+          ? t('import.duplicatesSkipped', { count: pending.duplicates.length })
           : undefined,
     });
   };
@@ -106,12 +109,12 @@ export function ImportBackup() {
         className="w-full"
         onClick={() => fileInput.current?.click()}
       >
-        Import JSON backup
+        {t('settings.importJson')}
       </Button>
 
       <Sheet
         open={pending !== null}
-        title="Import backup"
+        title={t('import.title')}
         onClose={() => {
           setPending(null);
           setError(null);
@@ -121,32 +124,32 @@ export function ImportBackup() {
         {pending ? (
           <div className="space-y-4">
             <p className="text-[15px] leading-relaxed text-ink">
-              Importing this backup may change your existing transaction history. Continue?
+              {t('import.warning')}
             </p>
 
             <dl className="space-y-2 rounded-xl bg-surface-sunken p-4 text-sm">
               <div className="flex justify-between">
-                <dt className="text-ink-muted">New transactions</dt>
+                <dt className="text-ink-muted">{t('import.newCount')}</dt>
                 <dd className="tnum font-semibold text-ink">{pending.newTransactions.length}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-ink-muted">Duplicates skipped</dt>
+                <dt className="text-ink-muted">{t('import.duplicateCount')}</dt>
                 <dd className="tnum font-semibold text-ink">{pending.duplicates.length}</dd>
               </div>
               {pending.exportedAt ? (
                 <div className="flex justify-between">
-                  <dt className="text-ink-muted">Backup taken</dt>
-                  <dd className="text-ink">{formatDisplayDate(pending.exportedAt.slice(0, 10))}</dd>
+                  <dt className="text-ink-muted">{t('import.takenOn')}</dt>
+                  <dd className="text-ink">{formatDisplayDate(pending.exportedAt.slice(0, 10), t)}</dd>
                 </div>
               ) : null}
             </dl>
 
             <fieldset className="space-y-2">
-              <legend className="field-label">How should this be applied?</legend>
+              <legend className="field-label">{t('import.mode')}</legend>
               {(
                 [
-                  { value: 'merge', label: 'Add to my existing transactions' },
-                  { value: 'replace', label: 'Replace everything with this backup' },
+                  { value: 'merge', label: t('import.merge') },
+                  { value: 'replace', label: t('import.replace') },
                 ] as const
               ).map((option) => (
                 <label
@@ -170,7 +173,7 @@ export function ImportBackup() {
 
             {mode === 'replace' ? (
               <p className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
-                Every transaction currently in the ledger will be permanently deleted first.
+                {t('import.replaceWarning')}
               </p>
             ) : null}
 
@@ -194,16 +197,16 @@ export function ImportBackup() {
                   setError(null);
                 }}
               >
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button
                 size="lg"
                 className="flex-1"
                 loading={busy}
-                loadingLabel="Importing..."
+                loadingLabel={t('import.importing')}
                 onClick={() => void confirmImport()}
               >
-                Import
+                {t('import.confirm')}
               </Button>
             </div>
           </div>

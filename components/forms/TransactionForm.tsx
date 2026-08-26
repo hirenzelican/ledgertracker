@@ -21,28 +21,16 @@ import {
 } from '@/lib/validation/transaction';
 import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
 import {
-  METHOD_LABELS,
   PAYMENT_METHODS,
   TRANSACTION_TYPES,
-  TYPE_DESCRIPTIONS,
   TYPE_DIRECTION,
-  TYPE_LABELS,
   type PaymentMethod,
   type Transaction,
   type TransactionInput,
   type TransactionType,
 } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { amountToPaise } from '@/lib/calculations/money';
-
-const METHOD_CHOICES = PAYMENT_METHODS.map((method) => ({
-  value: method,
-  label: METHOD_LABELS[method],
-}));
-
-const TYPE_CHOICES = TRANSACTION_TYPES.map((type) => ({
-  value: type,
-  label: TYPE_LABELS[type],
-}));
 
 export interface TransactionFormProps {
   /** Fixed for a new transaction; editable when editing an existing one. */
@@ -73,6 +61,7 @@ export function TransactionForm({
 }: TransactionFormProps) {
   const online = useOnlineStatus();
   const { people } = useLedger();
+  const { t } = useTranslation();
   const [type, setType] = useState<TransactionType>(initial?.type ?? initialType);
   const [personId, setPersonId] = useState(initial?.person_id ?? initialPersonId ?? '');
   const [amount, setAmount] = useState(() =>
@@ -103,14 +92,17 @@ export function TransactionForm({
 
     setFormError(null);
     setOverridable(false);
-    const result = validateTransactionForm({
-      person_id: personId,
-      amount,
-      transaction_date: date,
-      type,
-      method,
-      note,
-    });
+    const result = validateTransactionForm(
+      {
+        person_id: personId,
+        amount,
+        transaction_date: date,
+        type,
+        method,
+        note,
+      },
+      t,
+    );
 
     if (!result.ok) {
       setErrors(result.errors);
@@ -122,7 +114,7 @@ export function TransactionForm({
     try {
       const outcome = await onSubmit(result.value, { force });
       if (!outcome.ok) {
-        setFormError(outcome.message ?? 'Something went wrong. Please try again.');
+        setFormError(outcome.message ?? t('form.error.generic'));
         setOverridable(outcome.overridable === true);
       }
     } finally {
@@ -138,45 +130,55 @@ export function TransactionForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <p className="rounded-xl bg-surface-sunken px-4 py-2.5 text-sm text-ink-muted">
-        {TYPE_DESCRIPTIONS[type]}
+        {t(`type.${type}.caption`)}
       </p>
 
       <PersonPicker value={personId} onChange={setPersonId} error={errors.person} />
 
       <AmountField
+        label={t('form.amount')}
         value={amount}
         onChange={setAmount}
         error={errors.amount}
         autoFocus={!initial}
         hint={
           amountPaise !== null && amountPaise > 0 && personId !== ''
-            ? `After this: ${describePersonBalance(
-                people.find((person) => person.id === personId)?.name ?? 'them',
-                projectedBalancePaise,
-              )}`
+            ? t('form.amountAfter', {
+                result: describePersonBalance(
+                  people.find((person) => person.id === personId)?.name ?? '',
+                  projectedBalancePaise,
+                  t,
+                ),
+              })
             : undefined
         }
       />
 
       {allowTypeChange ? (
         <ChoiceGroup
-          label="Type"
+          label={t('form.type')}
           value={type}
-          choices={TYPE_CHOICES}
+          choices={TRANSACTION_TYPES.map((option) => ({
+            value: option,
+            label: t(`type.${option}.action`),
+          }))}
           onChange={setType}
           error={errors.type}
         />
       ) : null}
 
       <ChoiceGroup
-        label={TYPE_DIRECTION[type] === 1 ? 'Source' : 'Method'}
+        label={TYPE_DIRECTION[type] === 1 ? t('form.source') : t('form.method')}
         value={method}
-        choices={METHOD_CHOICES}
+        choices={PAYMENT_METHODS.map((option) => ({
+          value: option,
+          label: t(`method.${option}`),
+        }))}
         onChange={setMethod}
         error={errors.method}
       />
 
-      <Field label="Date" error={errors.transaction_date}>
+      <Field label={t('form.date')} error={errors.transaction_date}>
         {({ inputId, describedBy }) => (
           <input
             id={inputId}
@@ -192,11 +194,11 @@ export function TransactionForm({
       </Field>
 
       <TextField
-        label="Note (optional)"
+        label={t('form.note')}
         value={note}
         onChange={(event) => setNote(event.target.value)}
         maxLength={MAX_NOTE_LENGTH}
-        placeholder="Monthly savings, festival, emergency..."
+        placeholder={t('form.notePlaceholder')}
         error={errors.note}
         autoComplete="off"
       />
@@ -211,7 +213,7 @@ export function TransactionForm({
               onClick={() => void submit(true)}
               disabled={saving}
             >
-              Save anyway
+              {t('form.saveAnyway')}
             </Button>
           ) : null}
         </div>
@@ -219,20 +221,20 @@ export function TransactionForm({
 
       {!online ? (
         <p className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
-          You are offline. Reconnect before saving so the transaction is stored safely.
+          {t('form.offline')}
         </p>
       ) : null}
 
       <div className="flex gap-3 pt-1">
         <Button variant="secondary" size="lg" className="flex-1" onClick={onCancel} disabled={saving}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button
           type="submit"
           size="lg"
           className="flex-[1.6]"
           loading={saving}
-          loadingLabel="Saving..."
+          loadingLabel={t('form.saving')}
         >
           {submitLabel}
         </Button>

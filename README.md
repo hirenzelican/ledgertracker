@@ -41,6 +41,7 @@ money held for one person can never fund a return to another.
 - [Installing on Android](#installing-on-android)
 - [Backup and restore](#backup-and-restore)
 - [Project structure](#project-structure)
+- [Languages](#languages)
 - [Design notes](#design-notes)
 - [Troubleshooting](#troubleshooting)
 
@@ -51,9 +52,12 @@ money held for one person can never fund a return to another.
 - **People** — everyone whose money you hold, each with a relationship (mother, brother,
   friend…) and their own balance. Added inline while recording, so a new person never
   costs a detour.
-- **Record money** — four kinds, in two directions: *Received* (they left money with
-  you), *Returned* (you gave it back), *Lent* (you lent them your own money) and *Repaid*
-  (they paid you back). Person, amount, method, date and an optional note.
+- **Record money** — four kinds, in two directions, each said as a sentence rather than
+  an accounting term: *They gave me* (money to keep safe), *I gave back* (their money,
+  returned), *I lent them* (my own money) and *They paid back* (my money, returned).
+  Person, amount, method, date and an optional note.
+- **Languages** — English, हिन्दी, ગુજરાતી, বাংলা and मराठी, chosen in Settings and
+  remembered per device. The browser's own language is used on first launch.
 - **History** — every transaction newest-first with the balance after each one, filters
   (person, all / received / returned, this month, last month, custom range) and note
   search.
@@ -323,6 +327,34 @@ public/                   manifest, service worker, icons, offline page, headers
 scripts/generate-icons.mjs  regenerates the icon set (npm run icons)
 tests/                    domain unit tests
 ```
+
+## Languages
+
+Interface text lives in `lib/i18n/`. English (`en.ts`) is the source of truth and every
+other language is typed as `Record<MessageKey, string>`, so a missing or misspelt key is a
+compile error rather than a blank space on someone's screen. `npm test` additionally
+checks that every language covers every key, that `{placeholder}` names match English
+exactly, and that a language has not simply been copied from English.
+
+Adding a language is one file plus one line:
+
+```ts
+// lib/i18n/ta.ts
+import type { Dictionary } from './en';
+export const ta: Dictionary = { /* TypeScript will name every key you still owe */ };
+
+// lib/i18n/locales.ts
+export const LOCALES = ['en', 'hi', 'gu', 'bn', 'mr', 'ta'] as const;
+```
+
+Amounts stay in Indian digit grouping (₹1,00,000) in every language, since that is what
+the numbers mean regardless of the words around them. Dates take their month names from
+the dictionary.
+
+The translations shipped here were written for this app rather than machine-translated
+wholesale, but **they have not been reviewed by native speakers** - worth doing before a
+store launch. The connection-diagnostics panel on the login screen is deliberately left in
+English: it is a developer tool, and its wording matches this README.
 
 ## Design notes
 

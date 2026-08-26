@@ -3,12 +3,8 @@
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
 import { amountToPaise } from '@/lib/calculations/money';
-import {
-  METHOD_SHORT_LABELS,
-  TYPE_DIRECTION,
-  TYPE_LABELS,
-  type TransactionWithBalance,
-} from '@/types/transaction';
+import { TYPE_DIRECTION, type TransactionWithBalance } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 interface TransactionRowProps {
   entry: TransactionWithBalance;
@@ -30,6 +26,7 @@ export function TransactionRow({
   personName,
   showBalance = true,
 }: TransactionRowProps) {
+  const { t } = useTranslation();
   const { transaction, balanceAfterPaise } = entry;
   // Colour and arrow follow which way the money went; the label says why.
   const received = TYPE_DIRECTION[transaction.type] === 1;
@@ -67,21 +64,22 @@ export function TransactionRow({
           </span>
           {showBalance ? (
             <span className="tnum shrink-0 text-sm text-ink-faint">
-              {balanceAfterPaise < 0 ? 'Owed ' : 'Balance '}
-              {formatRupees(Math.abs(balanceAfterPaise))}
+              {balanceAfterPaise < 0
+                ? t('history.owedAfter', { amount: formatRupees(-balanceAfterPaise) })
+                : t('history.balanceAfter', { amount: formatRupees(balanceAfterPaise) })}
             </span>
           ) : null}
         </span>
         <span className="mt-0.5 flex items-baseline justify-between gap-3">
           <span className="truncate text-sm text-ink-muted">
-            <span className="sr-only">{TYPE_LABELS[transaction.type]} via </span>
+            <span className="sr-only">{t(`type.${transaction.type}.action`)} · </span>
             {personName ? (
               <>
                 <span className="font-medium text-ink-muted">{personName}</span>
                 {' · '}
               </>
             ) : null}
-            {TYPE_LABELS[transaction.type]} · {METHOD_SHORT_LABELS[transaction.method]}
+            {t(`type.${transaction.type}.short`)} · {t(`method.${transaction.method}.short`)}
             {transaction.note ? (
               <span className="text-ink-faint"> · {transaction.note}</span>
             ) : null}

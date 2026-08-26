@@ -31,16 +31,6 @@ export const RELATIONSHIPS = [
 ] as const;
 export type Relationship = (typeof RELATIONSHIPS)[number];
 
-export const RELATIONSHIP_LABELS: Record<Relationship, string> = {
-  MOTHER: 'Mother',
-  FATHER: 'Father',
-  BROTHER: 'Brother',
-  SISTER: 'Sister',
-  SPOUSE: 'Spouse',
-  FRIEND: 'Friend',
-  OTHER: 'Other',
-};
-
 /** Someone whose money is being held. */
 export interface Person {
   id: string;
@@ -122,51 +112,6 @@ export interface LedgerTotals {
   count: number;
   /** `transaction_date` of the most recent transaction, or null when the ledger is empty. */
   lastTransactionDate: string | null;
-}
-
-export const TYPE_LABELS: Record<TransactionType, string> = {
-  RECEIVED: 'Received',
-  RETURNED: 'Returned',
-  LENT: 'Lent',
-  REPAID: 'Repaid',
-};
-
-/** Said in full, from my point of view, so no one has to guess which way money went. */
-export const TYPE_DESCRIPTIONS: Record<TransactionType, string> = {
-  RECEIVED: 'They left money with me',
-  RETURNED: 'I gave their money back',
-  LENT: 'I lent them my money',
-  REPAID: 'They paid me back',
-};
-
-/** Heading for the form that records each kind. */
-export const TYPE_TITLES: Record<TransactionType, string> = {
-  RECEIVED: 'Money received',
-  RETURNED: 'Money returned',
-  LENT: 'Money lent',
-  REPAID: 'Money repaid',
-};
-
-export const METHOD_LABELS: Record<PaymentMethod, string> = {
-  GOOGLE_PAY: 'Google Pay / UPI',
-  CASH: 'Cash',
-  BANK_TRANSFER: 'Bank Transfer',
-  OTHER: 'Other',
-};
-
-/** Short labels for tight mobile rows. */
-export const METHOD_SHORT_LABELS: Record<PaymentMethod, string> = {
-  GOOGLE_PAY: 'Google Pay',
-  CASH: 'Cash',
-  BANK_TRANSFER: 'Bank Transfer',
-  OTHER: 'Other',
-};
-
-/** What a person's signed balance means, in words. */
-export function describeBalance(balancePaise: number): 'HOLDING' | 'OWED' | 'SETTLED' {
-  if (balancePaise > 0) return 'HOLDING';
-  if (balancePaise < 0) return 'OWED';
-  return 'SETTLED';
 }
 
 export function isTransactionType(value: unknown): value is TransactionType {

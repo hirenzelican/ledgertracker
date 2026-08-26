@@ -7,20 +7,7 @@
  * the day for users behind UTC.
  */
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const;
+import type { Translate } from '@/lib/i18n/locales';
 
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
 
@@ -51,23 +38,28 @@ export function toIsoDate(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-/** `2026-08-25` -> `25 Aug 2026`. */
-export function formatDisplayDate(iso: string): string {
+/** `2026-08-25` -> `25 Aug 2026`, in the reader's language. */
+export function formatDisplayDate(iso: string, t: Translate): string {
   const match = ISO_DATE.exec(iso);
   if (!match) return iso;
   const [, year, month, day] = match;
-  return `${Number(day)} ${MONTHS[Number(month) - 1] ?? month} ${year}`;
+  return `${Number(day)} ${monthName(Number(month), t)} ${year}`;
+}
+
+function monthName(month: number, t: Translate): string {
+  const key = `month.${month}` as Parameters<Translate>[0];
+  return t(key);
 }
 
 /** `2026-08-25` -> `25 Aug`, or `Today` / `Yesterday` when close by. */
-export function formatRelativeDate(iso: string, today = todayIso()): string {
-  if (iso === today) return 'Today';
-  if (iso === addDays(today, -1)) return 'Yesterday';
+export function formatRelativeDate(iso: string, t: Translate, today = todayIso()): string {
+  if (iso === today) return t('common.today');
+  if (iso === addDays(today, -1)) return t('common.yesterday');
   const match = ISO_DATE.exec(iso);
   if (!match) return iso;
   const [, year, month, day] = match;
   const suffix = year === today.slice(0, 4) ? '' : ` ${year}`;
-  return `${Number(day)} ${MONTHS[Number(month) - 1] ?? month}${suffix}`;
+  return `${Number(day)} ${monthName(Number(month), t)}${suffix}`;
 }
 
 export function addDays(iso: string, days: number): string {
@@ -100,6 +92,6 @@ export function shiftMonth(iso: string, months: number): string {
 }
 
 /** `01 Aug 2026 – 25 Aug 2026`. */
-export function formatDateRange(startIso: string, endIso: string): string {
-  return `${formatDisplayDate(startIso)} – ${formatDisplayDate(endIso)}`;
+export function formatDateRange(startIso: string, endIso: string, t: Translate): string {
+  return `${formatDisplayDate(startIso, t)} – ${formatDisplayDate(endIso, t)}`;
 }

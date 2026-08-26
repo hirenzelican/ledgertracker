@@ -2,6 +2,7 @@
 
 import { Fragment, useMemo } from 'react';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 import { TransactionRow } from './TransactionRow';
 import { formatRelativeDate } from '@/lib/format/date';
 import type { TransactionWithBalance } from '@/types/transaction';
@@ -23,6 +24,7 @@ export function TransactionList({
   hidePerson = false,
 }: TransactionListProps) {
   const { people } = useLedger();
+  const { t } = useTranslation();
   const namesById = useMemo(
     () => new Map(people.map((person) => [person.id, person.name])),
     [people],
@@ -40,7 +42,7 @@ export function TransactionList({
           <Fragment key={entry.transaction.id}>
             {isNewDay ? (
               <li className="bg-surface-sunken px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">
-                {formatRelativeDate(date)}
+                {formatRelativeDate(date, t)}
               </li>
             ) : null}
             <li>

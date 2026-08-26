@@ -1,3 +1,5 @@
+import { en } from '@/lib/i18n/en';
+import type { Translate } from '@/lib/i18n/locales';
 import type {
   PaymentMethod,
   Person,
@@ -54,3 +56,9 @@ export function makePerson(
 }
 
 export const DEFAULT_PEOPLE: Person[] = [makePerson('Mother', 'MOTHER', 'person-1')];
+
+/** An English translator for tests, matching what `useTranslation` provides at runtime. */
+export const t: Translate = (key, values) =>
+  (en[key] as string).replace(/\{(\w+)\}/g, (match, name: string) =>
+    values && name in values ? String(values[name]) : match,
+  );

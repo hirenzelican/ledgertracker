@@ -10,12 +10,14 @@ import { Sheet } from '@/components/ui/Sheet';
 import { Button } from '@/components/ui/Button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { useLedger } from '@/components/providers/LedgerProvider';
-import { RELATIONSHIP_LABELS } from '@/types/transaction';
+import { useTranslation } from '@/components/providers/LanguageProvider';
+import type { Person } from '@/types/transaction';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees, amountToPaise } from '@/lib/calculations/money';
 import { describePersonBalance } from '@/lib/calculations/balance';
+import type { Translate } from '@/lib/i18n/locales';
 import { formatDisplayDate } from '@/lib/format/date';
-import { METHOD_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@/types/transaction';
+import type { TransactionWithBalance } from '@/types/transaction';
 
 interface TransactionActionsProps {
   entry: TransactionWithBalance | null;
@@ -26,6 +28,7 @@ interface TransactionActionsProps {
 export function TransactionActions({ entry, onClose, onEdit }: TransactionActionsProps) {
   const { removeTransaction, balanceIfApplied, people } = useLedger();
   const { showToast } = useToast();
+  const { t } = useTranslation();
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -33,7 +36,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
 
   const { transaction } = entry;
   const amountPaise = amountToPaise(transaction.amount);
-  const typeLabel = TYPE_LABELS[transaction.type].toLowerCase();
+
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -52,31 +55,32 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
     onClose();
     showToast({
       tone: 'success',
-      title: `${formatRupees(amountPaise)} ${typeLabel} transaction deleted.`,
+      title: t('entry.deleted', { amount: formatRupees(amountPaise) }),
       description: describePersonBalance(
-        personLabel(people, transaction.person_id).split(' (')[0]!,
+        people.find((person) => person.id === transaction.person_id)?.name ?? '',
         balanceAfterDelete,
+        t,
       ),
     });
   };
 
   return (
     <>
-      <Sheet open={!confirmingDelete} title="Transaction" onClose={onClose}>
+      <Sheet open={!confirmingDelete} title={t('entry.title')} onClose={onClose}>
         <dl className="space-y-3 text-[15px]">
-          <Detail term="Person">{personLabel(people, transaction.person_id)}</Detail>
-          <Detail term="Amount">
+          <Detail term={t('entry.person')}>{personLabel(people, transaction.person_id, t)}</Detail>
+          <Detail term={t('entry.amount')}>
             <span className="tnum font-semibold">
               {transaction.type === 'RECEIVED' ? '+' : '−'} {formatRupees(amountPaise)}
             </span>
           </Detail>
-          <Detail term="Type">{TYPE_LABELS[transaction.type]}</Detail>
-          <Detail term="Method">{METHOD_LABELS[transaction.method]}</Detail>
-          <Detail term="Date">{formatDisplayDate(transaction.transaction_date)}</Detail>
-          <Detail term="Balance after">
+          <Detail term={t('entry.what')}>{t(`type.${transaction.type}.action`)}</Detail>
+          <Detail term={t('entry.method')}>{t(`method.${transaction.method}`)}</Detail>
+          <Detail term={t('entry.date')}>{formatDisplayDate(transaction.transaction_date, t)}</Detail>
+          <Detail term={t('entry.balanceAfter')}>
             <span className="tnum">{formatRupees(entry.balanceAfterPaise)}</span>
           </Detail>
-          {transaction.note ? <Detail term="Note">{transaction.note}</Detail> : null}
+          {transaction.note ? <Detail term={t('entry.note')}>{transaction.note}</Detail> : null}
         </dl>
 
         <div className="mt-6 flex gap-3">
@@ -86,19 +90,19 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
             className="flex-1"
             onClick={() => setConfirmingDelete(true)}
           >
-            Delete
+            {t('entry.delete')}
           </Button>
           <Button size="lg" className="flex-1" onClick={() => onEdit(entry)}>
-            Edit
+            {t('entry.edit')}
           </Button>
         </div>
       </Sheet>
 
       <ConfirmDialog
         open={confirmingDelete}
-        title="Delete transaction"
-        message={`Delete this ${formatRupees(amountPaise)} ${typeLabel} transaction? This cannot be undone.`}
-        confirmLabel="Delete"
+        title={t('entry.deleteTitle')}
+        message={t('entry.deleteMessage', { amount: formatRupees(amountPaise) })}
+        confirmLabel={t('entry.delete')}
         destructive
         busy={deleting}
         onConfirm={handleDelete}
@@ -109,13 +113,10 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
 }
 
 /** Name plus relationship, or a plain fallback if the person has since been removed. */
-function personLabel(
-  people: readonly { id: string; name: string; relationship: keyof typeof RELATIONSHIP_LABELS }[],
-  personId: string,
-): string {
+function personLabel(people: readonly Person[], personId: string, t: Translate): string {
   const person = people.find((candidate) => candidate.id === personId);
-  if (!person) return 'Unknown';
-  return `${person.name} (${RELATIONSHIP_LABELS[person.relationship]})`;
+  if (!person) return t('entry.unknownPerson');
+  return `${person.name} (${t(`relationship.${person.relationship}`)})`;
 }
 
 function Detail({ term, children }: { term: string; children: React.ReactNode }) {

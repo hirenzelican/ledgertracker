@@ -7,7 +7,7 @@ import {
 import { parseBackup } from '@/lib/validation/backup';
 import { buildBackup, serializeBackup } from '@/lib/export/backup';
 import { transactionsToCsv } from '@/lib/export/csv';
-import { DEFAULT_PEOPLE, makeTransaction } from './helpers';
+import { DEFAULT_PEOPLE, makeTransaction, t } from './helpers';
 
 const VALID_FORM = {
   person_id: 'person-1',
@@ -19,7 +19,7 @@ const VALID_FORM = {
 };
 
 test('accepts a well-formed transaction', () => {
-  const result = validateTransactionForm(VALID_FORM);
+  const result = validateTransactionForm(VALID_FORM, t);
   assert.ok(result.ok);
   assert.equal(result.value.amountPaise, 100_000);
   assert.equal(result.value.note, 'Monthly savings');
@@ -27,27 +27,27 @@ test('accepts a well-formed transaction', () => {
 
 test('rejects zero, negative, empty and malformed amounts', () => {
   for (const amount of ['0', '0.00', '', 'abc', '-5', '1.234']) {
-    const result = validateTransactionForm({ ...VALID_FORM, amount });
+    const result = validateTransactionForm({ ...VALID_FORM, amount }, t);
     assert.ok(!result.ok, `expected ${JSON.stringify(amount)} to be rejected`);
     assert.ok(result.errors.amount);
   }
 });
 
 test('rejects amounts beyond what NUMERIC(12,2) can hold', () => {
-  const result = validateTransactionForm({ ...VALID_FORM, amount: '99999999999' });
+  const result = validateTransactionForm({ ...VALID_FORM, amount: '99999999999' }, t);
   assert.ok(!result.ok);
   assert.ok(result.errors.amount);
 });
 
 test('rejects invalid dates, types and methods', () => {
-  assert.ok(!validateTransactionForm({ ...VALID_FORM, transaction_date: '2026-02-30' }).ok);
-  assert.ok(!validateTransactionForm({ ...VALID_FORM, transaction_date: '25-08-2026' }).ok);
-  assert.ok(!validateTransactionForm({ ...VALID_FORM, type: 'GIFT' }).ok);
-  assert.ok(!validateTransactionForm({ ...VALID_FORM, method: 'BITCOIN' }).ok);
+  assert.ok(!validateTransactionForm({ ...VALID_FORM, transaction_date: '2026-02-30' }, t).ok);
+  assert.ok(!validateTransactionForm({ ...VALID_FORM, transaction_date: '25-08-2026' }, t).ok);
+  assert.ok(!validateTransactionForm({ ...VALID_FORM, type: 'GIFT' }, t).ok);
+  assert.ok(!validateTransactionForm({ ...VALID_FORM, method: 'BITCOIN' }, t).ok);
 });
 
 test('an empty note is stored as an empty string, not junk', () => {
-  const result = validateTransactionForm({ ...VALID_FORM, note: '   ' });
+  const result = validateTransactionForm({ ...VALID_FORM, note: '   ' }, t);
   assert.ok(result.ok);
   assert.equal(result.value.note, '');
 });

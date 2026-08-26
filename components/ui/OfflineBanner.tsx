@@ -1,10 +1,12 @@
 'use client';
 
 import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
+import { useTranslation } from '@/components/providers/LanguageProvider';
 
 /** Persistent, unmissable indicator that writes will not go through right now. */
 export function OfflineBanner() {
   const online = useOnlineStatus();
+  const { t } = useTranslation();
   if (online) return null;
 
   return (
@@ -20,7 +22,7 @@ export function OfflineBanner() {
           strokeLinecap="round"
         />
       </svg>
-      Offline - transactions cannot be saved right now.
+      {t('common.offline')}
     </div>
   );
 }
