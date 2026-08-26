@@ -5,11 +5,11 @@ import {
   buildStatement,
   calculatePersonBalances,
   calculateTotals,
+  describePersonBalance,
+  summariseStanding,
   forPerson,
-  firstNegativeBalanceDate,
   projectedBalancePaise,
   sortChronological,
-  toLedgerEntries,
 } from '@/lib/calculations/balance';
 import { formatRupees } from '@/lib/calculations/money';
 import { makePerson, makeTransaction } from './helpers';
@@ -23,8 +23,8 @@ const LEDGER = [
 
 test('balance is received minus returned', () => {
   const totals = calculateTotals(LEDGER);
-  assert.equal(formatRupees(totals.receivedPaise), '₹15,000');
-  assert.equal(formatRupees(totals.returnedPaise), '₹2,000');
+  assert.equal(formatRupees(totals.moneyInPaise), '₹15,000');
+  assert.equal(formatRupees(totals.moneyOutPaise), '₹2,000');
   assert.equal(formatRupees(totals.balancePaise), '₹13,000');
   assert.equal(totals.count, 3);
   assert.equal(totals.lastTransactionDate, '2026-08-25');
@@ -191,55 +191,6 @@ test('statement over a period with no transactions carries the balance forward',
   assert.equal(statement.entries.length, 0);
 });
 
-test('a back-dated return that dips the balance below zero is caught', () => {
-  const ledger = [
-    makeTransaction({ id: 'r1', date: '2026-08-20', type: 'RECEIVED', amount: '10000.00', createdAt: '2026-08-20T10:00:00Z' }),
-    makeTransaction({ id: 'r2', date: '2026-08-25', type: 'RECEIVED', amount: '5000.00', createdAt: '2026-08-25T10:00:00Z' }),
-  ];
-  const entries = toLedgerEntries(ledger);
-
-  // ₹12,000 returned today is fine: ₹15,000 was already in hand.
-  assert.equal(
-    firstNegativeBalanceDate([
-      ...entries,
-      { transaction_date: '2026-08-26', created_at: '2026-08-26T10:00:00Z', type: 'RETURNED', amountPaise: 1_200_000 },
-    ]),
-    null,
-  );
-
-  // The same ₹12,000 back-dated to 22 Aug is not: only ₹10,000 had been received by then,
-  // even though the closing balance would still be positive.
-  assert.equal(
-    firstNegativeBalanceDate([
-      ...entries,
-      { transaction_date: '2026-08-22', created_at: '2026-08-26T10:00:00Z', type: 'RETURNED', amountPaise: 1_200_000 },
-    ]),
-    '2026-08-22',
-  );
-});
-
-test('same-day ordering decides whether a back-dated entry is valid', () => {
-  const entries = toLedgerEntries([
-    makeTransaction({ id: 'a', date: '2026-08-20', type: 'RECEIVED', amount: '1000.00', createdAt: '2026-08-20T10:00:00Z' }),
-  ]);
-  // Recorded after the receipt on the same day: allowed.
-  assert.equal(
-    firstNegativeBalanceDate([
-      ...entries,
-      { transaction_date: '2026-08-20', created_at: '2026-08-20T11:00:00Z', type: 'RETURNED', amountPaise: 100_000 },
-    ]),
-    null,
-  );
-  // Recorded before it: the balance would be negative at that moment.
-  assert.equal(
-    firstNegativeBalanceDate([
-      ...entries,
-      { transaction_date: '2026-08-20', created_at: '2026-08-20T09:00:00Z', type: 'RETURNED', amountPaise: 100_000 },
-    ]),
-    '2026-08-20',
-  );
-});
-
 test('balances are derived per person, never pooled', () => {
   const mother = makePerson('Mother', 'MOTHER', 'p-mother');
   const brother = makePerson('Ravi', 'BROTHER', 'p-ravi');
@@ -294,4 +245,79 @@ test('people with no transactions still appear, at zero', () => {
   assert.equal(balances[0]?.balancePaise, 0);
   assert.equal(balances[0]?.count, 0);
   assert.equal(balances[0]?.lastTransactionDate, null);
+});
+
+test('lending drives the balance negative, meaning they owe me', () => {
+  const ravi = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const ledger = [
+    makeTransaction({ personId: ravi.id, date: '2026-08-01', type: 'LENT', amount: '5000.00' }),
+  ];
+  const [balance] = calculatePersonBalances([ravi], ledger);
+  assert.equal(balance?.balancePaise, -500_000);
+  assert.equal(describePersonBalance('Ravi', balance!.balancePaise), 'Ravi owes you ₹5,000');
+
+  // Repaying half leaves half outstanding.
+  const afterPartial = projectedBalancePaise(ledger, {
+    include: { type: 'REPAID', amountPaise: 250_000 },
+  });
+  assert.equal(afterPartial, -250_000);
+  assert.equal(describePersonBalance('Ravi', afterPartial), 'Ravi owes you ₹2,500');
+
+  // Repaying it all settles up.
+  assert.equal(
+    describePersonBalance(
+      'Ravi',
+      projectedBalancePaise(ledger, { include: { type: 'REPAID', amountPaise: 500_000 } }),
+    ),
+    'Settled up with Ravi',
+  );
+});
+
+test('holding and lending net off across one person', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'p-mother');
+  const ledger = [
+    makeTransaction({ personId: mother.id, date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ personId: mother.id, date: '2026-08-02', type: 'LENT', amount: '2000.00' }),
+  ];
+  // Her ₹10,000 with me, my ₹2,000 with her: I am net holding ₹8,000 of hers.
+  assert.equal(calculateTotals(ledger).balancePaise, 800_000);
+  assert.equal(calculateTotals(ledger).moneyInPaise, 1_000_000);
+  assert.equal(calculateTotals(ledger).moneyOutPaise, 200_000);
+});
+
+test('holding for one person and being owed by another are reported apart', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'p-mother');
+  const ravi = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const settled = makePerson('Priya', 'FRIEND', 'p-priya');
+  const ledger = [
+    makeTransaction({ personId: mother.id, date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-02', type: 'LENT', amount: '4000.00' }),
+    makeTransaction({ personId: settled.id, date: '2026-08-03', type: 'LENT', amount: '1000.00' }),
+    makeTransaction({ personId: settled.id, date: '2026-08-04', type: 'REPAID', amount: '1000.00' }),
+  ];
+
+  const balances = calculatePersonBalances([mother, ravi, settled], ledger);
+  const standing = summariseStanding(balances);
+  assert.equal(standing.holdingPaise, 1_000_000);
+  assert.equal(standing.owedToYouPaise, 400_000);
+
+  // Settled people sort last, so the list leads with what needs attention.
+  assert.deepEqual(
+    balances.map((entry) => entry.person.name),
+    ['Mother', 'Ravi', 'Priya'],
+  );
+});
+
+test('running balances cross zero cleanly in both directions', () => {
+  const ravi = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const running = buildRunningBalances([
+    makeTransaction({ personId: ravi.id, date: '2026-08-01', type: 'RECEIVED', amount: '1000.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-02', type: 'RETURNED', amount: '1000.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-03', type: 'LENT', amount: '600.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-04', type: 'REPAID', amount: '250.00' }),
+  ]);
+  assert.deepEqual(
+    running.map((entry) => entry.balanceAfterPaise),
+    [100_000, 0, -60_000, -35_000],
+  );
 });

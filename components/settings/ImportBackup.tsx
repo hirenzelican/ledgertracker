@@ -13,58 +13,10 @@ import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
-import { findNegativeBalancePoint, parseBackup, type ParsedBackup } from '@/lib/validation/backup';
-import { amountToPaise } from '@/lib/calculations/money';
-import type { Person, Transaction, TransactionType } from '@/types/transaction';
+import { parseBackup, type ParsedBackup } from '@/lib/validation/backup';
 import { formatDisplayDate } from '@/lib/format/date';
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
-
-/** The first person whose merged history would dip below zero, if any. */
-function findNegativePersonPoint(
-  existing: readonly Transaction[],
-  people: readonly Person[],
-  incoming: readonly {
-    personName: string;
-    transaction_date: string;
-    type: TransactionType;
-    amountPaise: number;
-  }[],
-): { personName: string; date: string } | null {
-  const nameById = new Map(people.map((person) => [person.id, person.name.toLowerCase()]));
-  type Entry = { transaction_date: string; type: TransactionType; amountPaise: number };
-  const byPerson = new Map<string, Entry[]>();
-
-  const push = (key: string, entry: Entry) => {
-    const bucket = byPerson.get(key);
-    if (bucket) bucket.push(entry);
-    else byPerson.set(key, [entry]);
-  };
-
-  for (const transaction of existing) {
-    push(nameById.get(transaction.person_id) ?? transaction.person_id, {
-      transaction_date: transaction.transaction_date,
-      type: transaction.type,
-      amountPaise: amountToPaise(transaction.amount),
-    });
-  }
-  for (const row of incoming) {
-    push(row.personName.toLowerCase(), {
-      transaction_date: row.transaction_date,
-      type: row.type,
-      amountPaise: row.amountPaise,
-    });
-  }
-
-  for (const [key, entries] of byPerson) {
-    const negative = findNegativeBalancePoint(entries);
-    if (negative) {
-      const match = incoming.find((row) => row.personName.toLowerCase() === key);
-      return { personName: match?.personName ?? key, date: negative.date };
-    }
-  }
-  return null;
-}
 
 export function ImportBackup() {
   const { transactions, importTransactions, people } = useLedger();
@@ -113,20 +65,6 @@ export function ImportBackup() {
 
   const confirmImport = async () => {
     if (!pending) return;
-
-    // Each person is a separate pot, so the resulting ledger is checked one person at a
-    // time; a surplus held for one person cannot cover a shortfall for another.
-    const negative = findNegativePersonPoint(
-      mode === 'replace' ? [] : transactions,
-      people,
-      pending.newTransactions,
-    );
-    if (negative) {
-      setError(
-        `This backup would make ${negative.personName}'s balance negative on ${formatDisplayDate(negative.date)}. Nothing was imported.`,
-      );
-      return;
-    }
 
     setBusy(true);
     const result = await importTransactions(pending.newTransactions, mode);

@@ -10,7 +10,14 @@ import { TransactionForm } from '@/components/forms/TransactionForm';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees } from '@/lib/calculations/money';
-import { TYPE_LABELS, type Transaction, type TransactionInput, type TransactionType } from '@/types/transaction';
+import { describePersonBalance } from '@/lib/calculations/balance';
+import {
+  TYPE_LABELS,
+  TYPE_TITLES,
+  type Transaction,
+  type TransactionInput,
+  type TransactionType,
+} from '@/types/transaction';
 
 export type SheetMode =
   | { kind: 'create'; type: TransactionType; personId?: string }
@@ -43,17 +50,9 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
   const balanceForPerson = (personId: string) =>
     balanceIfApplied(personId, { excludeId: editingId });
 
-  const title = isEdit
-    ? 'Edit transaction'
-    : type === 'RECEIVED'
-      ? 'Money received'
-      : 'Money returned';
+  const title = isEdit ? 'Edit transaction' : TYPE_TITLES[type];
 
-  const submitLabel = isEdit
-    ? 'SAVE CHANGES'
-    : type === 'RECEIVED'
-      ? 'SAVE RECEIVED'
-      : 'SAVE RETURNED';
+  const submitLabel = isEdit ? 'SAVE CHANGES' : `SAVE ${TYPE_LABELS[type].toUpperCase()}`;
 
   const handleSubmit = async (input: TransactionInput, options?: { force?: boolean }) => {
     const newBalancePaise = balanceIfApplied(input.person_id, {
@@ -61,7 +60,7 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
       include: { type: input.type, amountPaise: input.amountPaise },
     });
 
-    const mutationOptions = { allowNegativeHistory: options?.force === true };
+    const mutationOptions = { allowUnusual: options?.force === true };
     const result = isEdit
       ? await editTransaction(mode.transaction.id, input, mutationOptions)
       : await addTransaction(input, mutationOptions);
@@ -75,9 +74,10 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
       title: isEdit
         ? `Transaction updated - ${formatRupees(input.amountPaise)} ${TYPE_LABELS[input.type].toLowerCase()}.`
         : `${formatRupees(input.amountPaise)} ${TYPE_LABELS[input.type].toLowerCase()} successfully.`,
-      description: `${possessive(
-        people.find((person) => person.id === input.person_id)?.name,
-      )} balance: ${formatRupees(newBalancePaise)}`,
+      description: describePersonBalance(
+        people.find((person) => person.id === input.person_id)?.name ?? 'them',
+        newBalancePaise,
+      ),
     });
     onClose();
     return { ok: true };

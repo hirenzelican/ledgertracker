@@ -1,7 +1,21 @@
 /** Domain types for the ledger. These mirror the `transactions` table exactly. */
 
-export const TRANSACTION_TYPES = ['RECEIVED', 'RETURNED'] as const;
+/**
+ * Money moves in two directions for two reasons, giving four kinds of entry. They all
+ * sit on one signed axis per person: RECEIVED and REPAID raise the balance, RETURNED and
+ * LENT lower it. A positive balance means their money is with me; a negative one means
+ * they owe me.
+ */
+export const TRANSACTION_TYPES = ['RECEIVED', 'RETURNED', 'LENT', 'REPAID'] as const;
 export type TransactionType = (typeof TRANSACTION_TYPES)[number];
+
+/** Whether a type adds to the balance (+1) or takes from it (-1). */
+export const TYPE_DIRECTION: Record<TransactionType, 1 | -1> = {
+  RECEIVED: 1,
+  REPAID: 1,
+  RETURNED: -1,
+  LENT: -1,
+};
 
 export const PAYMENT_METHODS = ['GOOGLE_PAY', 'CASH', 'BANK_TRANSFER', 'OTHER'] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -45,9 +59,10 @@ export interface PersonInput {
 /** A person with their derived figures, for the dashboard list. */
 export interface PersonBalance {
   person: Person;
+  /** Positive: holding their money. Negative: they owe me. */
   balancePaise: number;
-  receivedPaise: number;
-  returnedPaise: number;
+  moneyInPaise: number;
+  moneyOutPaise: number;
   count: number;
   lastTransactionDate: string | null;
 }
@@ -98,9 +113,12 @@ export interface TransactionWithBalance {
 }
 
 export interface LedgerTotals {
+  /** Net across everyone; rarely shown, since holding and being owed are different things. */
   balancePaise: number;
-  receivedPaise: number;
-  returnedPaise: number;
+  /** Everything that came to me, over all time. */
+  moneyInPaise: number;
+  /** Everything that went out, over all time. */
+  moneyOutPaise: number;
   count: number;
   /** `transaction_date` of the most recent transaction, or null when the ledger is empty. */
   lastTransactionDate: string | null;
@@ -109,6 +127,24 @@ export interface LedgerTotals {
 export const TYPE_LABELS: Record<TransactionType, string> = {
   RECEIVED: 'Received',
   RETURNED: 'Returned',
+  LENT: 'Lent',
+  REPAID: 'Repaid',
+};
+
+/** Said in full, from my point of view, so no one has to guess which way money went. */
+export const TYPE_DESCRIPTIONS: Record<TransactionType, string> = {
+  RECEIVED: 'They left money with me',
+  RETURNED: 'I gave their money back',
+  LENT: 'I lent them my money',
+  REPAID: 'They paid me back',
+};
+
+/** Heading for the form that records each kind. */
+export const TYPE_TITLES: Record<TransactionType, string> = {
+  RECEIVED: 'Money received',
+  RETURNED: 'Money returned',
+  LENT: 'Money lent',
+  REPAID: 'Money repaid',
 };
 
 export const METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -125,6 +161,13 @@ export const METHOD_SHORT_LABELS: Record<PaymentMethod, string> = {
   BANK_TRANSFER: 'Bank Transfer',
   OTHER: 'Other',
 };
+
+/** What a person's signed balance means, in words. */
+export function describeBalance(balancePaise: number): 'HOLDING' | 'OWED' | 'SETTLED' {
+  if (balancePaise > 0) return 'HOLDING';
+  if (balancePaise < 0) return 'OWED';
+  return 'SETTLED';
+}
 
 export function isTransactionType(value: unknown): value is TransactionType {
   return typeof value === 'string' && (TRANSACTION_TYPES as readonly string[]).includes(value);

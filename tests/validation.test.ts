@@ -1,11 +1,10 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
 import {
-  checkBalanceNotNegative,
   sanitizeNote,
   validateTransactionForm,
 } from '@/lib/validation/transaction';
-import { parseBackup, findNegativeBalancePoint } from '@/lib/validation/backup';
+import { parseBackup } from '@/lib/validation/backup';
 import { buildBackup, serializeBackup } from '@/lib/export/backup';
 import { transactionsToCsv } from '@/lib/export/csv';
 import { DEFAULT_PEOPLE, makeTransaction } from './helpers';
@@ -56,15 +55,6 @@ test('an empty note is stored as an empty string, not junk', () => {
 test('notes are stripped of control characters and collapsed whitespace', () => {
   assert.equal(sanitizeNote('  emergency    requirement \n'), 'emergency requirement');
   assert.equal(sanitizeNote('a'.repeat(500)).length, 200);
-});
-
-test('insufficient balance is reported with the available amount', () => {
-  const ok = checkBalanceNotNegative(0, 1_300_000);
-  assert.ok(ok.ok);
-
-  const bad = checkBalanceNotNegative(-200_000, 300_000, 'Mother');
-  assert.ok(!bad.ok);
-  assert.equal(bad.message, "Insufficient balance. Mother's available balance is ₹3,000.");
 });
 
 test('CSV export matches the documented format', () => {
@@ -190,18 +180,3 @@ test('malformed backups are rejected with a readable reason', () => {
   }
 });
 
-test('a restore that would drive the balance negative is caught before writing', () => {
-  const negative = findNegativeBalancePoint([
-    { transaction_date: '2026-01-01', type: 'RECEIVED', amountPaise: 100_000 },
-    { transaction_date: '2026-01-02', type: 'RETURNED', amountPaise: 250_000 },
-  ]);
-  assert.deepEqual(negative, { date: '2026-01-02' });
-
-  assert.equal(
-    findNegativeBalancePoint([
-      { transaction_date: '2026-01-01', type: 'RECEIVED', amountPaise: 100_000 },
-      { transaction_date: '2026-01-02', type: 'RETURNED', amountPaise: 100_000 },
-    ]),
-    null,
-  );
-});

@@ -8,7 +8,6 @@
  */
 
 import { MAX_AMOUNT_PAISE, amountToPaise } from '@/lib/calculations/money';
-import { firstNegativeBalanceDate, type LedgerEntryLike } from '@/lib/calculations/balance';
 import { isIsoDate } from '@/lib/format/date';
 import { BACKUP_FORMAT } from '@/lib/export/backup';
 import { MAX_NOTE_LENGTH, sanitizeNote } from './transaction';
@@ -215,15 +214,4 @@ export function parseBackup(
     typeof parsed.exported_at === 'string' ? parsed.exported_at : null;
 
   return { ok: true, value: { newTransactions, duplicates, exportedAt } };
-}
-
-/**
- * A restore must leave the ledger in a valid state: the running balance may never dip
- * below zero at any point in the merged history.
- */
-export function findNegativeBalancePoint(
-  merged: readonly LedgerEntryLike[],
-): { date: string } | null {
-  const date = firstNegativeBalanceDate(merged);
-  return date === null ? null : { date };
 }

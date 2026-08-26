@@ -14,6 +14,7 @@ import { TextField } from '@/components/ui/Field';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { ConnectionCheck } from '@/components/layout/ConnectionCheck';
+import { PotliLogo } from '@/components/ui/PotliLogo';
 
 type Mode = 'password' | 'magic-link' | 'create';
 
@@ -95,12 +96,7 @@ export default function LoginPage() {
       <OfflineBanner />
       <main className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center px-5 py-10">
         <div className="mb-8 text-center">
-          <div
-            aria-hidden="true"
-            className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand text-2xl font-bold text-brand-ink"
-          >
-            ₹
-          </div>
+          <PotliLogo className="mx-auto mb-4 h-20 w-20" withBackdrop title="Potli" />
           <h1 className="text-2xl font-semibold text-ink">Potli</h1>
           <p className="mt-1.5 text-[15px] text-ink-muted">
             Money you hold for the people you love. Never guess the amount again.

@@ -5,13 +5,19 @@
 A private, mobile-first PWA for one job: knowing **how much of someone else's money you
 are currently holding**.
 
-Your mother leaves ₹10,000 with you for safekeeping. Your brother asks you to hold ₹4,000
-until next month. Money arrives by Google Pay / UPI, cash or bank transfer, and goes back
-in pieces over weeks. Potli records both directions, per person, and always knows the
-balance.
+Your mother leaves ₹10,000 with you for safekeeping. You lend your brother ₹4,000 until
+next month. Money moves by Google Pay / UPI, cash or bank transfer, and comes back in
+pieces over weeks. Potli records every direction, per person, and always knows where you
+stand.
+
+Each person has one signed balance, so both kinds of debt live on the same axis:
 
 ```
-Each person's balance = SUM(RECEIVED) − SUM(RETURNED)
+balance = (RECEIVED + REPAID) − (RETURNED + LENT)
+
+balance > 0   you are holding their money
+balance < 0   they owe you
+balance = 0   settled
 ```
 
 The transaction table is the only source of truth. No balance is ever stored, so editing
@@ -40,13 +46,14 @@ money held for one person can never fund a return to another.
 
 ## What it does
 
-- **Dashboard** — the total you are holding, then a per-person breakdown of who that
-  money belongs to, with two large buttons for recording money.
+- **Dashboard** — how much of other people's money you are holding, how much is owed to
+  you, then a per-person breakdown, with four large buttons for recording money.
 - **People** — everyone whose money you hold, each with a relationship (mother, brother,
   friend…) and their own balance. Added inline while recording, so a new person never
   costs a detour.
-- **Record money** — person, amount, source/method, date (defaults to today) and an
-  optional note. Returning more than that person's balance is refused.
+- **Record money** — four kinds, in two directions: *Received* (they left money with
+  you), *Returned* (you gave it back), *Lent* (you lent them your own money) and *Repaid*
+  (they paid you back). Person, amount, method, date and an optional note.
 - **History** — every transaction newest-first with the balance after each one, filters
   (person, all / received / returned, this month, last month, custom range) and note
   search.
@@ -54,6 +61,8 @@ money held for one person can never fund a return to another.
 - **Statement** — opening balance, money in, money out and closing balance for a date
   range, for everyone or one person, plus the transactions in that period.
 - **Backup** — CSV export, JSON backup and validated JSON restore.
+- **One mark, one source** — the bag logo is defined once in `lib/brand/logo.ts` and
+  rendered both as SVG in the app and as the PNG icon set, so they cannot drift apart.
 - **PWA** — installable, standalone, offline-aware, light/dark themes.
 
 Deliberately *not* included: budgets, expenses, investments, bills, bank imports,
@@ -110,9 +119,10 @@ them**. `.env.local` is gitignored; nothing secret belongs in this repository.
 
 ## Database migration
 
-Open the Supabase SQL editor and run both migrations in order -
-[`20260825000000_create_transactions.sql`](supabase/migrations/20260825000000_create_transactions.sql)
-then [`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql) -
+Open the Supabase SQL editor and run the migrations in order -
+[`20260825000000_create_transactions.sql`](supabase/migrations/20260825000000_create_transactions.sql),
+[`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql), then
+[`20260826010000_two_way_tracking.sql`](supabase/migrations/20260826010000_two_way_tracking.sql) -
 or apply them with the CLI:
 
 ```bash
@@ -136,7 +146,7 @@ id               uuid primary key
 user_id          uuid not null references auth.users(id) on delete cascade
 person_id        uuid not null references people(id) on delete restrict
 transaction_date date not null
-type             text not null   -- RECEIVED | RETURNED
+type             text not null   -- RECEIVED | RETURNED | LENT | REPAID
 amount           numeric(12,2) not null  -- always > 0
 method           text not null   -- GOOGLE_PAY | CASH | BANK_TRANSFER | OTHER
 note             text            -- max 200 characters
@@ -326,11 +336,12 @@ Decisions that are load-bearing, in case a future change threatens one of them:
 - **Each person is a separate pot.** Balances, guards and statements are all scoped per
   person; the dashboard total is only ever a sum of them. Deleting someone who still has
   transactions is refused by the database rather than silently erasing their history.
-- **The balance can never go negative.** Returning more than is currently held is refused
-  outright with the available amount. A back-dated entry that leaves the ledger below zero
-  only part-way through its history is a *warning* with a "Save anyway" button, not a
-  refusal: while back-filling old transactions out of order, a return entered before its
-  earlier receipts looks negative until those are added.
+- **Nothing is refused, but surprises are explained.** Once lending is tracked, a negative
+  balance is a real state rather than an impossible one, so no combination of entries is
+  invalid. What remains is catching the mistyped amount: returning more than you hold, or
+  being repaid more than you lent, warns and says exactly what the result will mean, with
+  a "Save anyway" button. Amount validation (positive, within NUMERIC(12,2)) is still a
+  hard stop.
 - **Ordering is total.** Transactions sort by `transaction_date`, then `created_at`, then
   `id`, so two entries on the same day never swap places between devices.
 - **Writes are confirmed before they are believed.** Local state only changes after
@@ -387,11 +398,9 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 Both are compiled in at build time, so correcting them in your host does nothing until
 you redeploy.
 
-**"This makes the balance negative on …".** A warning, not a refusal. The transaction is
-dated before the money that accounts for it. If you are back-filling old history, press
-*Save anyway* and add the earlier receipts; entering oldest first avoids it entirely. For
-a large back-fill, a JSON restore is easier - the whole history is checked at once, so
-order does not matter.
+**"You are only holding ₹X for …".** A warning, not a refusal: you are paying out more of
+someone's money than you hold, so the surplus will show as them owing you. If that is
+really a loan, record it as *Lent* instead; if the amount is right, press *Save anyway*.
 
 **Import says the balance would go negative.** The backup, merged with what you already
 have, produces a point in history where more money is returned than was ever received.

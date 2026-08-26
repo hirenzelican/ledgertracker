@@ -1,39 +1,50 @@
 'use client';
 
-import type { TransactionType } from '@/types/transaction';
+import { cn } from '@/lib/cn';
+import { TYPE_DESCRIPTIONS, TYPE_LABELS, type TransactionType } from '@/types/transaction';
 
 /**
- * The two-second path: tap, type an amount, save. These are the largest touch targets
- * in the app by design.
+ * The two-second path: tap, type an amount, save. Money can move for two reasons in each
+ * direction, so there are four, laid out as in / out rather than alphabetically - the
+ * first thing you know is which way the money went.
  */
+const ACTIONS: {
+  type: TransactionType;
+  sign: string;
+  tone: 'in' | 'out';
+}[] = [
+  { type: 'RECEIVED', sign: '+', tone: 'in' },
+  { type: 'RETURNED', sign: '−', tone: 'out' },
+  { type: 'LENT', sign: '−', tone: 'out' },
+  { type: 'REPAID', sign: '+', tone: 'in' },
+];
+
 export function QuickActions({ onAction }: { onAction: (type: TransactionType) => void }) {
   return (
     <div className="grid grid-cols-2 gap-3">
-      <button
-        type="button"
-        onClick={() => onAction('RECEIVED')}
-        className="flex min-h-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl
-          bg-received px-4 py-4 text-received-ink shadow-sm transition active:scale-[0.99]"
-      >
-        <span aria-hidden="true" className="text-2xl font-bold leading-none">
-          +
-        </span>
-        <span className="text-[15px] font-semibold">Received</span>
-        <span className="sr-only">Record money received from my mother</span>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => onAction('RETURNED')}
-        className="flex min-h-[92px] flex-col items-center justify-center gap-1.5 rounded-2xl
-          bg-returned px-4 py-4 text-returned-ink shadow-sm transition active:scale-[0.99]"
-      >
-        <span aria-hidden="true" className="text-2xl font-bold leading-none">
-          −
-        </span>
-        <span className="text-[15px] font-semibold">Returned</span>
-        <span className="sr-only">Record money returned to my mother</span>
-      </button>
+      {ACTIONS.map((action) => (
+        <button
+          key={action.type}
+          type="button"
+          onClick={() => onAction(action.type)}
+          className={cn(
+            'flex min-h-[78px] flex-col items-center justify-center gap-0.5 rounded-2xl px-3 py-3 shadow-sm transition active:scale-[0.99]',
+            action.tone === 'in'
+              ? 'bg-received text-received-ink'
+              : 'bg-returned text-returned-ink',
+          )}
+        >
+          <span className="flex items-center gap-1.5">
+            <span aria-hidden="true" className="text-xl font-bold leading-none">
+              {action.sign}
+            </span>
+            <span className="text-[15px] font-semibold">{TYPE_LABELS[action.type]}</span>
+          </span>
+          <span className="text-[11px] font-medium opacity-90">
+            {TYPE_DESCRIPTIONS[action.type]}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -23,11 +23,10 @@ import {
   buildRunningBalances,
   calculatePersonBalances,
   calculateTotals,
-  firstNegativeBalanceDate,
+  summariseStanding,
   forPerson,
   projectedBalancePaise,
   sortChronological,
-  toLedgerEntries,
 } from '@/lib/calculations/balance';
 import {
   deletePerson as deletePersonRow,
@@ -44,10 +43,12 @@ import {
   updateTransaction as updateTransactionRow,
 } from '@/lib/supabase/transactions';
 import { GENERIC_LOAD_ERROR, GENERIC_SAVE_ERROR, toFriendlyMessage } from '@/lib/supabase/errors';
-import { checkBalanceNotNegative } from '@/lib/validation/transaction';
+import { formatRupees } from '@/lib/calculations/money';
+
 import type { BackupRowInput } from '@/lib/validation/backup';
-import { formatDisplayDate } from '@/lib/format/date';
+
 import { useAuth } from './AuthProvider';
+import type { Standing } from '@/lib/calculations/balance';
 import type {
   LedgerTotals,
   Person,
@@ -70,8 +71,8 @@ export type MutationResult =
 export type PersonResult = { ok: true; person: Person } | { ok: false; message: string };
 
 export interface MutationOptions {
-  /** Proceed even though the balance dips below zero mid-history. */
-  allowNegativeHistory?: boolean;
+  /** Proceed despite a warning about the change's consequence. */
+  allowUnusual?: boolean;
 }
 
 interface LedgerContextValue {
@@ -79,6 +80,8 @@ interface LedgerContextValue {
   people: Person[];
   /** Per-person figures, most money held first. */
   personBalances: PersonBalance[];
+  /** How much is held for others, and how much others owe. */
+  standing: Standing;
   addPerson: (input: PersonInput) => Promise<PersonResult>;
   editPerson: (id: string, input: PersonInput) => Promise<PersonResult>;
   removePerson: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
@@ -122,47 +125,43 @@ function nameOf(people: readonly Person[], personId: string): string {
 }
 
 /**
- * Checks a change against the ledger. A final balance below zero is refused outright -
- * you cannot hold less than none of someone else's money. A dip below zero part-way
- * through history is only a warning: while back-filling old transactions, a return
- * entered before the receipts that preceded it looks negative until those are added.
+ * Warns about a change with a surprising consequence, and explains it in the terms the
+ * user thinks in. Nothing is refused any more: now that lending is tracked, a negative
+ * balance is a real state rather than an impossible one, so every combination is
+ * legitimate. What is left is catching the mistyped amount - returning ₹5,000 when only
+ * ₹500 is held is far more often a slip than a spontaneous loan.
  */
-function rejectIfNegative(
+function warnAboutConsequence(
   transactions: readonly Transaction[],
   input: TransactionInput,
   excludeId: string | undefined,
   personName: string,
 ): { message: string; overridable: boolean } | null {
-  // Scoped to one person: each person's money is a separate pot, and holding ₹5,000 for
-  // a brother does not let you return ₹5,000 to a mother.
   const remaining = forPerson(transactions, input.person_id).filter(
     (transaction) => transaction.id !== excludeId,
   );
-
-  const finalBalance = projectedBalancePaise(remaining, {
+  const before = projectedBalancePaise(remaining, {});
+  const after = projectedBalancePaise(remaining, {
     include: { type: input.type, amountPaise: input.amountPaise },
   });
-  const check = checkBalanceNotNegative(
-    finalBalance,
-    projectedBalancePaise(remaining, {}),
-    personName,
-  );
-  if (!check.ok) return { message: check.message, overridable: false };
 
-  const negativeDate = firstNegativeBalanceDate([
-    ...toLedgerEntries(remaining),
-    {
-      transaction_date: input.transaction_date,
-      // Sorts last among transactions sharing its date, matching how it will be stored.
-      created_at: new Date().toISOString(),
-      type: input.type,
-      amountPaise: input.amountPaise,
-    },
-  ]);
-  if (negativeDate !== null) {
+  // Paying out more of someone's money than is being held turns the excess into a loan.
+  if (input.type === 'RETURNED' && after < 0) {
+    const held = Math.max(before, 0);
     return {
-      message: `This makes ${personName}'s balance negative on ${formatDisplayDate(negativeDate)}, because nothing earlier accounts for it yet. If you are still adding older transactions, that is expected.`,
       overridable: true,
+      message:
+        before <= 0
+          ? `You are not holding any of ${personName}'s money. Saving this will show ${personName} owing you ${formatRupees(-after)} - record it as Lent instead if that is what happened.`
+          : `You are only holding ${formatRupees(held)} for ${personName}. The extra ${formatRupees(-after)} will show as ${personName} owing you.`,
+    };
+  }
+
+  // Being paid back more than was lent means the surplus is now money being held.
+  if (input.type === 'REPAID' && after > 0 && before < 0) {
+    return {
+      overridable: true,
+      message: `${personName} only owed you ${formatRupees(-before)}. The extra ${formatRupees(after)} will show as their money that you are holding.`,
     };
   }
 
@@ -225,6 +224,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     () => calculatePersonBalances(people, transactions),
     [people, transactions],
   );
+
+  const standing = useMemo(() => summariseStanding(personBalances), [personBalances]);
 
   const addPerson = useCallback(
     async (input: PersonInput): Promise<PersonResult> => {
@@ -298,8 +299,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     async (input: TransactionInput, options?: MutationOptions): Promise<MutationResult> => {
       if (!user) return { ok: false, message: 'Please sign in again to save transactions.' };
 
-      const rejection = rejectIfNegative(transactions, input, undefined, nameOf(people, input.person_id));
-      if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
+      const rejection = warnAboutConsequence(
+        transactions,
+        input,
+        undefined,
+        nameOf(people, input.person_id),
+      );
+      if (rejection && !(rejection.overridable && options?.allowUnusual)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
       }
 
@@ -320,8 +326,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       input: TransactionInput,
       options?: MutationOptions,
     ): Promise<MutationResult> => {
-      const rejection = rejectIfNegative(transactions, input, id, nameOf(people, input.person_id));
-      if (rejection && !(rejection.overridable && options?.allowNegativeHistory)) {
+      const rejection = warnAboutConsequence(
+        transactions,
+        input,
+        id,
+        nameOf(people, input.person_id),
+      );
+      if (rejection && !(rejection.overridable && options?.allowUnusual)) {
         return { ok: false, message: rejection.message, overridable: rejection.overridable };
       }
 
@@ -422,6 +433,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       transactions,
       people,
       personBalances,
+      standing,
       addPerson,
       editPerson,
       removePerson,
@@ -441,6 +453,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       transactions,
       people,
       personBalances,
+      standing,
       addPerson,
       editPerson,
       removePerson,

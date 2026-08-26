@@ -10,7 +10,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/*.test.ts",
-    "icons": "node scripts/generate-icons.mjs",
+    "icons": "node --experimental-strip-types scripts/generate-icons.mjs",
     "deploy": "npm run build && npx wrangler pages deploy out"
   },
   "dependencies": {

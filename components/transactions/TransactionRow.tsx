@@ -3,7 +3,12 @@
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
 import { amountToPaise } from '@/lib/calculations/money';
-import { METHOD_SHORT_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@/types/transaction';
+import {
+  METHOD_SHORT_LABELS,
+  TYPE_DIRECTION,
+  TYPE_LABELS,
+  type TransactionWithBalance,
+} from '@/types/transaction';
 
 interface TransactionRowProps {
   entry: TransactionWithBalance;
@@ -26,7 +31,8 @@ export function TransactionRow({
   showBalance = true,
 }: TransactionRowProps) {
   const { transaction, balanceAfterPaise } = entry;
-  const received = transaction.type === 'RECEIVED';
+  // Colour and arrow follow which way the money went; the label says why.
+  const received = TYPE_DIRECTION[transaction.type] === 1;
   const amountPaise = amountToPaise(transaction.amount);
 
   const content = (
@@ -61,7 +67,8 @@ export function TransactionRow({
           </span>
           {showBalance ? (
             <span className="tnum shrink-0 text-sm text-ink-faint">
-              Balance {formatRupees(balanceAfterPaise)}
+              {balanceAfterPaise < 0 ? 'Owed ' : 'Balance '}
+              {formatRupees(Math.abs(balanceAfterPaise))}
             </span>
           ) : null}
         </span>
@@ -74,7 +81,7 @@ export function TransactionRow({
                 {' · '}
               </>
             ) : null}
-            {METHOD_SHORT_LABELS[transaction.method]}
+            {TYPE_LABELS[transaction.type]} · {METHOD_SHORT_LABELS[transaction.method]}
             {transaction.note ? (
               <span className="text-ink-faint"> · {transaction.note}</span>
             ) : null}

@@ -13,6 +13,7 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { RELATIONSHIP_LABELS } from '@/types/transaction';
 import { useToast } from '@/components/providers/ToastProvider';
 import { formatRupees, amountToPaise } from '@/lib/calculations/money';
+import { describePersonBalance } from '@/lib/calculations/balance';
 import { formatDisplayDate } from '@/lib/format/date';
 import { METHOD_LABELS, TYPE_LABELS, type TransactionWithBalance } from '@/types/transaction';
 
@@ -52,7 +53,10 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
     showToast({
       tone: 'success',
       title: `${formatRupees(amountPaise)} ${typeLabel} transaction deleted.`,
-      description: `${personLabel(people, transaction.person_id).split(' (')[0]}'s balance: ${formatRupees(balanceAfterDelete)}`,
+      description: describePersonBalance(
+        personLabel(people, transaction.person_id).split(' (')[0]!,
+        balanceAfterDelete,
+      ),
     });
   };
 

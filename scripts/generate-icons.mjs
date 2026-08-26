@@ -1,98 +1,288 @@
 /**
  * Generates the PWA icon set as PNG files, with no image dependencies.
  *
- * The mark is drawn from rounded line segments (capsules) and rasterised with 4x4
- * supersampling, then encoded as a PNG by hand. Running `npm run icons` regenerates
- * everything in public/icons.
+ * The artwork comes from lib/brand/logo.ts - the same geometry the React logo renders -
+ * so the app icon and the on-screen mark can never drift apart. SVG paths are flattened
+ * to polygons here, filled with a non-zero winding test and 4x4 supersampling, then
+ * encoded as a PNG by hand. Run `npm run icons` to regenerate.
  */
 
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  LOGO_COLORS,
+  LOGO_PATHS,
+  LOGO_VIEWBOX,
+  RUPEE_SEGMENT_WIDTH,
+  rupeeSegments,
+} from '../lib/brand/logo.ts';
 
 const OUT_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'icons');
 
-const BRAND = [13, 108, 92];
-const INK = [255, 255, 255];
+function hexToRgb(hex) {
+  const value = hex.replace('#', '');
+  return [
+    parseInt(value.slice(0, 2), 16),
+    parseInt(value.slice(2, 4), 16),
+    parseInt(value.slice(4, 6), 16),
+  ];
+}
 
-/** The rupee mark, as line segments in a unit square. */
-const GLYPH = [
-  // Two horizontal bars.
-  { a: [0.3, 0.28], b: [0.72, 0.28], w: 0.075 },
-  { a: [0.3, 0.42], b: [0.72, 0.42], w: 0.075 },
-  // Bowl: down the stem, then back across to the left.
-  { a: [0.63, 0.3], b: [0.63, 0.5], w: 0.075 },
-  { a: [0.63, 0.5], b: [0.56, 0.565], w: 0.075 },
-  { a: [0.58, 0.575], b: [0.33, 0.575], w: 0.075 },
-  // Leg down to the baseline.
-  { a: [0.42, 0.575], b: [0.71, 0.82], w: 0.075 },
-];
+/* ------------------------------------------------------------------ path flattening */
 
-function distanceToSegment(px, py, [ax, ay], [bx, by]) {
-  const dx = bx - ax;
-  const dy = by - ay;
+/** Parses the subset of path syntax used by the logo: M, L, C, Q, Z, absolute only. */
+function flattenPath(d, steps = 24) {
+  const tokens = d.match(/[MLCQZ]|-?\d*\.?\d+/gi) ?? [];
+  const points = [];
+  let index = 0;
+  let current = [0, 0];
+  let start = [0, 0];
+
+  const number = () => Number(tokens[index++]);
+
+  while (index < tokens.length) {
+    const command = tokens[index++];
+    switch (command) {
+      case 'M': {
+        current = [number(), number()];
+        start = current;
+        points.push(current);
+        break;
+      }
+      case 'L': {
+        current = [number(), number()];
+        points.push(current);
+        break;
+      }
+      case 'Q': {
+        const control = [number(), number()];
+        const end = [number(), number()];
+        for (let step = 1; step <= steps; step += 1) {
+          const t = step / steps;
+          const inverse = 1 - t;
+          points.push([
+            inverse * inverse * current[0] + 2 * inverse * t * control[0] + t * t * end[0],
+            inverse * inverse * current[1] + 2 * inverse * t * control[1] + t * t * end[1],
+          ]);
+        }
+        current = end;
+        break;
+      }
+      case 'C': {
+        const c1 = [number(), number()];
+        const c2 = [number(), number()];
+        const end = [number(), number()];
+        for (let step = 1; step <= steps; step += 1) {
+          const t = step / steps;
+          const u = 1 - t;
+          points.push([
+            u * u * u * current[0] + 3 * u * u * t * c1[0] + 3 * u * t * t * c2[0] + t * t * t * end[0],
+            u * u * u * current[1] + 3 * u * u * t * c1[1] + 3 * u * t * t * c2[1] + t * t * t * end[1],
+          ]);
+        }
+        current = end;
+        break;
+      }
+      case 'Z': {
+        points.push(start);
+        current = start;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  return points;
+}
+
+/** Non-zero winding test: true when the point lies inside the polygon. */
+function insidePolygon(polygon, x, y) {
+  let winding = 0;
+  for (let i = 0; i < polygon.length; i += 1) {
+    const [x1, y1] = polygon[i];
+    const [x2, y2] = polygon[(i + 1) % polygon.length];
+    if (y1 <= y) {
+      if (y2 > y && (x2 - x1) * (y - y1) - (x - x1) * (y2 - y1) > 0) winding += 1;
+    } else if (y2 <= y && (x2 - x1) * (y - y1) - (x - x1) * (y2 - y1) < 0) {
+      winding -= 1;
+    }
+  }
+  return winding !== 0;
+}
+
+function distanceToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
   const lengthSquared = dx * dx + dy * dy;
   const t =
-    lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared));
-  const cx = ax + t * dx;
-  const cy = ay + t * dy;
-  return Math.hypot(px - cx, py - cy);
+    lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lengthSquared));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
-function insideGlyph(x, y, scale, centre) {
-  // Map the unit square through the requested scale about the icon centre.
-  const gx = (x - centre) / scale + 0.5;
-  const gy = (y - centre) / scale + 0.5;
-  return GLYPH.some(({ a, b, w }) => distanceToSegment(gx, gy, a, b) <= w / 2);
-}
-
-function insideRoundedSquare(x, y, radius) {
-  const dx = Math.max(radius - x, 0, x - (1 - radius));
-  const dy = Math.max(radius - y, 0, y - (1 - radius));
-  if (dx === 0 || dy === 0) return x >= 0 && x <= 1 && y >= 0 && y <= 1;
+function insideRoundedSquare(x, y, size, radius) {
+  const dx = Math.max(radius - x, 0, x - (size - radius));
+  const dy = Math.max(radius - y, 0, y - (size - radius));
+  if (dx === 0 || dy === 0) return x >= 0 && x <= size && y >= 0 && y <= size;
   return Math.hypot(dx, dy) <= radius;
 }
 
-/** Renders one icon into raw RGBA bytes. */
+/* ------------------------------------------------------------------------ rendering */
+
+const SHAPES = LOGO_PATHS.map((path) => ({
+  polygon: flattenPath(path.d),
+  colour: hexToRgb(LOGO_COLORS[path.fill]),
+  clip: path.clip === true,
+}));
+const BAG_POLYGON = SHAPES[1].polygon;
+const RUPEE = rupeeSegments();
+const RUPEE_COLOUR = hexToRgb(LOGO_COLORS.rupee);
+const BACKDROP = hexToRgb(LOGO_COLORS.backdrop);
+
+/**
+ * Fills a polygon into a sample mask one row at a time.
+ *
+ * Testing every sample against every edge is quadratic and takes minutes at 512px; this
+ * walks each row once, collects the edge crossings with their winding direction, and
+ * fills the spans where the winding is non-zero.
+ */
+function fillPolygon(mask, width, height, polygon, toSampleX, toSampleY, value, clipMask) {
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (const [, y] of polygon) {
+    const sampleY = toSampleY(y);
+    if (sampleY < minY) minY = sampleY;
+    if (sampleY > maxY) maxY = sampleY;
+  }
+  const firstRow = Math.max(0, Math.floor(minY));
+  const lastRow = Math.min(height - 1, Math.ceil(maxY));
+
+  for (let row = firstRow; row <= lastRow; row += 1) {
+    const y = row + 0.5;
+    const crossings = [];
+
+    for (let i = 0; i < polygon.length; i += 1) {
+      const [ax, ay] = polygon[i];
+      const [bx, by] = polygon[(i + 1) % polygon.length];
+      const y1 = toSampleY(ay);
+      const y2 = toSampleY(by);
+      if (y1 === y2) continue;
+      if (y < Math.min(y1, y2) || y >= Math.max(y1, y2)) continue;
+      const t = (y - y1) / (y2 - y1);
+      crossings.push({ x: toSampleX(ax) + t * (toSampleX(bx) - toSampleX(ax)), dir: y2 > y1 ? 1 : -1 });
+    }
+
+    if (crossings.length < 2) continue;
+    crossings.sort((a, b) => a.x - b.x);
+
+    let winding = 0;
+    for (let i = 0; i < crossings.length - 1; i += 1) {
+      winding += crossings[i].dir;
+      if (winding === 0) continue;
+      const from = Math.max(0, Math.ceil(crossings[i].x - 0.5));
+      const to = Math.min(width - 1, Math.floor(crossings[i + 1].x - 0.5));
+      for (let column = from; column <= to; column += 1) {
+        const index = row * width + column;
+        if (clipMask && clipMask[index] === 0) continue;
+        mask[index] = value;
+      }
+    }
+  }
+}
+
 function renderIcon(size, { maskable }) {
-  const pixels = Buffer.alloc(size * size * 4);
   const samples = 4;
-  // A maskable icon may be cropped to a circle, so the mark is kept well inside.
-  const cornerRadius = maskable ? 0.5 : 0.22;
-  const glyphScale = maskable ? 0.62 : 0.86;
+  const width = size * samples;
+  const height = size * samples;
+  // 0 = outside the tile, 1 = backdrop, 2+ = shape index + 2, 255 = rupee.
+  const mask = new Uint8Array(width * height);
+
+  // The backdrop fills the tile; the artwork is inset within it.
+  const scale = maskable ? 0.66 : 0.82;
+  const offset = (LOGO_VIEWBOX * (1 - scale)) / 2;
+  const radius = maskable ? 0 : LOGO_VIEWBOX * 0.22;
+  const toSample = (viewValue) => (viewValue / LOGO_VIEWBOX) * width;
+  const artX = (x) => toSample(offset + x * scale);
+  const artY = (y) => toSample(offset + y * scale);
+
+  for (let row = 0; row < height; row += 1) {
+    const viewY = ((row + 0.5) / height) * LOGO_VIEWBOX;
+    for (let column = 0; column < width; column += 1) {
+      const viewX = ((column + 0.5) / width) * LOGO_VIEWBOX;
+      if (insideRoundedSquare(viewX, viewY, LOGO_VIEWBOX, radius)) {
+        mask[row * width + column] = 1;
+      }
+    }
+  }
+
+  // The bag silhouette, kept so the shading below can be clipped to it.
+  const bagMask = new Uint8Array(width * height);
+  fillPolygon(bagMask, width, height, BAG_POLYGON, artX, artY, 1, null);
+
+  SHAPES.forEach((shape, index) => {
+    fillPolygon(mask, width, height, shape.polygon, artX, artY, index + 2, shape.clip ? bagMask : null);
+  });
+
+  // The rupee sign: a handful of round-capped strokes, only over the artwork itself.
+  const strokeRadius = (RUPEE_SEGMENT_WIDTH / 2 / LOGO_VIEWBOX) * width * scale;
+  for (const segment of RUPEE) {
+    const x1 = artX(segment.x1);
+    const y1 = artY(segment.y1);
+    const x2 = artX(segment.x2);
+    const y2 = artY(segment.y2);
+    const fromRow = Math.max(0, Math.floor(Math.min(y1, y2) - strokeRadius));
+    const toRow = Math.min(height - 1, Math.ceil(Math.max(y1, y2) + strokeRadius));
+    const fromColumn = Math.max(0, Math.floor(Math.min(x1, x2) - strokeRadius));
+    const toColumn = Math.min(width - 1, Math.ceil(Math.max(x1, x2) + strokeRadius));
+
+    for (let row = fromRow; row <= toRow; row += 1) {
+      for (let column = fromColumn; column <= toColumn; column += 1) {
+        const index = row * width + column;
+        if (mask[index] < 2) continue; // Never draw the sign onto the backdrop.
+        if (distanceToSegment(column + 0.5, row + 0.5, x1, y1, x2, y2) <= strokeRadius) {
+          mask[index] = 255;
+        }
+      }
+    }
+  }
+
+  const palette = [null, BACKDROP, ...SHAPES.map((shape) => shape.colour)];
+  const pixels = Buffer.alloc(size * size * 4);
 
   for (let py = 0; py < size; py += 1) {
     for (let px = 0; px < size; px += 1) {
-      let backgroundHits = 0;
-      let glyphHits = 0;
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      let hits = 0;
 
       for (let sy = 0; sy < samples; sy += 1) {
         for (let sx = 0; sx < samples; sx += 1) {
-          const x = (px + (sx + 0.5) / samples) / size;
-          const y = (py + (sy + 0.5) / samples) / size;
-          const inBackground = maskable ? true : insideRoundedSquare(x, y, cornerRadius);
-          if (inBackground) backgroundHits += 1;
-          if (inBackground && insideGlyph(x, y, glyphScale, 0.5)) glyphHits += 1;
+          const value = mask[(py * samples + sy) * width + (px * samples + sx)];
+          if (value === 0) continue;
+          const colour = value === 255 ? RUPEE_COLOUR : palette[value];
+          r += colour[0];
+          g += colour[1];
+          b += colour[2];
+          hits += 1;
         }
       }
 
-      const total = samples * samples;
-      const backgroundAlpha = backgroundHits / total;
-      const glyphAlpha = glyphHits / total;
-      const offset = (py * size + px) * 4;
-
-      for (let channel = 0; channel < 3; channel += 1) {
-        const base = BRAND[channel];
-        const blended = base + (INK[channel] - base) * (backgroundAlpha === 0 ? 0 : glyphAlpha / Math.max(backgroundAlpha, glyphAlpha));
-        pixels[offset + channel] = Math.round(blended);
-      }
-      pixels[offset + 3] = Math.round(backgroundAlpha * 255);
+      if (hits === 0) continue;
+      const index = (py * size + px) * 4;
+      pixels[index] = Math.round(r / hits);
+      pixels[index + 1] = Math.round(g / hits);
+      pixels[index + 2] = Math.round(b / hits);
+      pixels[index + 3] = Math.round((hits / (samples * samples)) * 255);
     }
   }
 
   return pixels;
 }
+
+/* -------------------------------------------------------------------- PNG encoding */
 
 const CRC_TABLE = (() => {
   const table = new Int32Array(256);

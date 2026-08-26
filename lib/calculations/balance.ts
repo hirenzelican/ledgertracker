@@ -6,6 +6,7 @@
  * editing or deleting history can never leave a stale total behind.
  */
 
+import { TYPE_DIRECTION } from '@/types/transaction';
 import type {
   LedgerTotals,
   Person,
@@ -14,11 +15,11 @@ import type {
   TransactionType,
   TransactionWithBalance,
 } from '@/types/transaction';
-import { amountToPaise } from './money';
+import { amountToPaise, formatRupees } from './money';
 
 /** The signed effect a transaction has on the balance, in paise. */
 export function signedDeltaPaise(type: TransactionType, amountPaise: number): number {
-  return type === 'RECEIVED' ? amountPaise : -amountPaise;
+  return TYPE_DIRECTION[type] * amountPaise;
 }
 
 /**
@@ -56,16 +57,16 @@ export function buildRunningBalances(
 
 /** Aggregate figures for the dashboard. */
 export function calculateTotals(transactions: readonly Transaction[]): LedgerTotals {
-  let receivedPaise = 0;
-  let returnedPaise = 0;
+  let moneyInPaise = 0;
+  let moneyOutPaise = 0;
   let lastTransactionDate: string | null = null;
 
   for (const transaction of transactions) {
     const amountPaise = amountToPaise(transaction.amount);
-    if (transaction.type === 'RECEIVED') {
-      receivedPaise += amountPaise;
+    if (TYPE_DIRECTION[transaction.type] === 1) {
+      moneyInPaise += amountPaise;
     } else {
-      returnedPaise += amountPaise;
+      moneyOutPaise += amountPaise;
     }
     if (lastTransactionDate === null || transaction.transaction_date > lastTransactionDate) {
       lastTransactionDate = transaction.transaction_date;
@@ -73,9 +74,9 @@ export function calculateTotals(transactions: readonly Transaction[]): LedgerTot
   }
 
   return {
-    balancePaise: receivedPaise - returnedPaise,
-    receivedPaise,
-    returnedPaise,
+    balancePaise: moneyInPaise - moneyOutPaise,
+    moneyInPaise,
+    moneyOutPaise,
     count: transactions.length,
     lastTransactionDate,
   };
@@ -111,16 +112,50 @@ export function calculatePersonBalances(
       return {
         person,
         balancePaise: totals.balancePaise,
-        receivedPaise: totals.receivedPaise,
-        returnedPaise: totals.returnedPaise,
+        moneyInPaise: totals.moneyInPaise,
+        moneyOutPaise: totals.moneyOutPaise,
         count: totals.count,
         lastTransactionDate: totals.lastTransactionDate,
       };
     })
     .sort((a, b) => {
+      // Largest holdings first, then whoever owes the most, then everyone settled.
+      const weight = (value: number) => (value === 0 ? 1 : 0);
+      if (weight(a.balancePaise) !== weight(b.balancePaise)) {
+        return weight(a.balancePaise) - weight(b.balancePaise);
+      }
       if (a.balancePaise !== b.balancePaise) return b.balancePaise - a.balancePaise;
       return a.person.name.localeCompare(b.person.name);
     });
+}
+
+/** "Holding ₹8,000 for Ravi" / "Ravi owes you ₹2,000" / "Settled up with Ravi". */
+export function describePersonBalance(name: string, balancePaise: number): string {
+  if (balancePaise > 0) return `Holding ${formatRupees(balancePaise)} for ${name}`;
+  if (balancePaise < 0) return `${name} owes you ${formatRupees(-balancePaise)}`;
+  return `Settled up with ${name}`;
+}
+
+export interface Standing {
+  /** Total of other people's money currently in my hands. */
+  holdingPaise: number;
+  /** Total that other people owe me. */
+  owedToYouPaise: number;
+}
+
+/**
+ * The two figures that matter across everyone. They are kept apart on purpose: holding
+ * ₹10,000 for one person while another owes you ₹4,000 is not the same as having
+ * ₹6,000 of anything, and a single net number would imply it was.
+ */
+export function summariseStanding(balances: readonly PersonBalance[]): Standing {
+  let holdingPaise = 0;
+  let owedToYouPaise = 0;
+  for (const { balancePaise } of balances) {
+    if (balancePaise > 0) holdingPaise += balancePaise;
+    else owedToYouPaise -= balancePaise;
+  }
+  return { holdingPaise, owedToYouPaise };
 }
 
 /** Current balance in paise, derived from the full transaction list. */
@@ -151,53 +186,6 @@ export function projectedBalancePaise(
     balancePaise += signedDeltaPaise(change.include.type, change.include.amountPaise);
   }
   return balancePaise;
-}
-
-/** The minimum a row needs for the negative-balance check. */
-export interface LedgerEntryLike {
-  transaction_date: string;
-  created_at?: string;
-  id?: string;
-  type: TransactionType;
-  amountPaise: number;
-}
-
-/**
- * The first date at which the running balance would go below zero, or null if it never
- * does. Used to reject a transaction that balances out overall but would leave the
- * ledger holding less than nothing at some point in between - a back-dated return being
- * the usual way that happens.
- */
-export function firstNegativeBalanceDate(entries: readonly LedgerEntryLike[]): string | null {
-  const ordered = [...entries].sort((a, b) => {
-    if (a.transaction_date !== b.transaction_date) {
-      return a.transaction_date < b.transaction_date ? -1 : 1;
-    }
-    const aCreated = a.created_at ?? '';
-    const bCreated = b.created_at ?? '';
-    if (aCreated !== bCreated) return aCreated < bCreated ? -1 : 1;
-    const aId = a.id ?? '';
-    const bId = b.id ?? '';
-    return aId < bId ? -1 : aId > bId ? 1 : 0;
-  });
-
-  let balancePaise = 0;
-  for (const entry of ordered) {
-    balancePaise += signedDeltaPaise(entry.type, entry.amountPaise);
-    if (balancePaise < 0) return entry.transaction_date;
-  }
-  return null;
-}
-
-/** Maps stored rows into the shape `firstNegativeBalanceDate` expects. */
-export function toLedgerEntries(transactions: readonly Transaction[]): LedgerEntryLike[] {
-  return transactions.map((transaction) => ({
-    transaction_date: transaction.transaction_date,
-    created_at: transaction.created_at,
-    id: transaction.id,
-    type: transaction.type,
-    amountPaise: amountToPaise(transaction.amount),
-  }));
 }
 
 export interface StatementSummary {
@@ -234,7 +222,7 @@ export function buildStatement(
     }
     if (date > endDate) continue;
     entries.push(entry);
-    if (entry.transaction.type === 'RECEIVED') {
+    if (entry.deltaPaise > 0) {
       receivedPaise += entry.deltaPaise;
     } else {
       returnedPaise += -entry.deltaPaise;

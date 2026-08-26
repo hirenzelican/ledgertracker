@@ -29,7 +29,7 @@ export default function DashboardPage() {
 }
 
 function Dashboard() {
-  const { ledger, totals, status, loadError, refresh, personBalances } = useLedger();
+  const { ledger, totals, status, loadError, refresh, personBalances, standing } = useLedger();
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -72,6 +72,7 @@ function Dashboard() {
   return (
     <AppShell
       title="Potli"
+      showLogo
       action={
         <Link
           href="/settings/"
@@ -94,7 +95,7 @@ function Dashboard() {
           <WelcomeCard onStart={() => openSheet('RECEIVED')} onDismiss={dismissWelcome} />
         ) : null}
 
-        <BalanceCard totals={totals} />
+        <BalanceCard totals={totals} standing={standing} />
 
         <QuickActions onAction={openSheet} />
 

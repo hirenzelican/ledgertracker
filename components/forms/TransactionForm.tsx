@@ -10,7 +10,9 @@ import { useMemo, useState } from 'react';
 import { AmountField, ChoiceGroup, Field, TextField } from '@/components/ui/Field';
 import { PersonPicker } from './PersonPicker';
 import { Button } from '@/components/ui/Button';
-import { formatRupees, parseAmountInput } from '@/lib/calculations/money';
+import { parseAmountInput } from '@/lib/calculations/money';
+import { describePersonBalance } from '@/lib/calculations/balance';
+import { useLedger } from '@/components/providers/LedgerProvider';
 import { todayIso } from '@/lib/format/date';
 import {
   MAX_NOTE_LENGTH,
@@ -22,6 +24,8 @@ import {
   METHOD_LABELS,
   PAYMENT_METHODS,
   TRANSACTION_TYPES,
+  TYPE_DESCRIPTIONS,
+  TYPE_DIRECTION,
   TYPE_LABELS,
   type PaymentMethod,
   type Transaction,
@@ -68,6 +72,7 @@ export function TransactionForm({
   onCancel,
 }: TransactionFormProps) {
   const online = useOnlineStatus();
+  const { people } = useLedger();
   const [type, setType] = useState<TransactionType>(initial?.type ?? initialType);
   const [personId, setPersonId] = useState(initial?.person_id ?? initialPersonId ?? '');
   const [amount, setAmount] = useState(() =>
@@ -132,6 +137,10 @@ export function TransactionForm({
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
+      <p className="rounded-xl bg-surface-sunken px-4 py-2.5 text-sm text-ink-muted">
+        {TYPE_DESCRIPTIONS[type]}
+      </p>
+
       <PersonPicker value={personId} onChange={setPersonId} error={errors.person} />
 
       <AmountField
@@ -141,7 +150,10 @@ export function TransactionForm({
         autoFocus={!initial}
         hint={
           amountPaise !== null && amountPaise > 0 && personId !== ''
-            ? `Balance after this: ${formatRupees(projectedBalancePaise)}`
+            ? `After this: ${describePersonBalance(
+                people.find((person) => person.id === personId)?.name ?? 'them',
+                projectedBalancePaise,
+              )}`
             : undefined
         }
       />
@@ -157,7 +169,7 @@ export function TransactionForm({
       ) : null}
 
       <ChoiceGroup
-        label={type === 'RECEIVED' ? 'Source' : 'Method'}
+        label={TYPE_DIRECTION[type] === 1 ? 'Source' : 'Method'}
         value={method}
         choices={METHOD_CHOICES}
         onChange={setMethod}

@@ -94,23 +94,3 @@ export function validateTransactionForm(
     },
   };
 }
-
-/**
- * Guards the ledger against going negative - the app never holds a negative amount of
- * someone else's money. The projected balance is computed by the caller from the
- * transaction list, so this stays a pure check over derived data.
- */
-export function checkBalanceNotNegative(
-  projectedBalancePaise: number,
-  availableBalancePaise: number,
-  personName = 'their',
-): { ok: true } | { ok: false; message: string } {
-  if (projectedBalancePaise >= 0) return { ok: true };
-  const whose = personName === 'their' ? 'their' : `${personName}'s`;
-  return {
-    ok: false,
-    message: `Insufficient balance. ${whose} available balance is ${formatRupees(
-      Math.max(availableBalancePaise, 0),
-    )}.`,
-  };
-}
