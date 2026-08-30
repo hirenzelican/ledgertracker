@@ -20,6 +20,10 @@ export const bn: Dictionary = {
   'contacts.notFound': 'এই ব্যক্তি আর নেই।',
   'contacts.record': 'নতুন লেনদেন',
   'contacts.manage': 'তথ্য বদলান',
+  'contacts.search': 'খুঁজুন',
+  'contacts.add': 'যোগ করুন',
+  'contacts.noMatch': 'এতে কাউকে পাওয়া গেল না।',
+  'contacts.remove': 'সরিয়ে দিন',
   'settings.contactsLink': 'মানুষজন সামলান',
   'share.whatsapp': 'WhatsApp-এ পাঠান',
   'share.copied': 'কপি হয়েছে — WhatsApp-এ পেস্ট করুন।',
@@ -113,6 +117,7 @@ export const bn: Dictionary = {
   'form.error.note': 'নোট {max} অক্ষরের বেশি হতে পারে না।',
   'form.error.generic': 'কিছু একটা ভুল হয়েছে। আবার চেষ্টা করুন।',
 
+  'people.more': 'আরও {count} - নাম দিয়ে খুঁজুন',
   'people.addNew': '+ নতুন কেউ',
   'people.close': 'বন্ধ করুন',
   'people.name': 'নাম',

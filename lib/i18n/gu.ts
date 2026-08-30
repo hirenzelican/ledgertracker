@@ -20,6 +20,10 @@ export const gu: Dictionary = {
   'contacts.notFound': 'આ વ્યક્તિ હવે નથી.',
   'contacts.record': 'નવી નોંધ',
   'contacts.manage': 'વ્યક્તિ બદલો',
+  'contacts.search': 'લોકોમાં શોધો',
+  'contacts.add': 'વ્યક્તિ ઉમેરો',
+  'contacts.noMatch': 'એનાથી કોઈ મળ્યું નહીં.',
+  'contacts.remove': 'વ્યક્તિ કાઢો',
   'settings.contactsLink': 'લોકો સંભાળો',
   'share.whatsapp': 'WhatsApp પર મોકલો',
   'share.copied': 'કૉપી થયું — WhatsApp માં પેસ્ટ કરો.',
@@ -114,6 +118,7 @@ export const gu: Dictionary = {
   'form.error.note': 'નોંધ {max} અક્ષરથી લાંબી ન હોઈ શકે.',
   'form.error.generic': 'કંઈક ખોટું થયું. ફરી પ્રયત્ન કરો.',
 
+  'people.more': 'બીજા {count} - નામથી શોધો',
   'people.addNew': '+ નવી વ્યક્તિ',
   'people.close': 'બંધ કરો',
   'people.name': 'નામ',

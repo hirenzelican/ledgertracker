@@ -7,29 +7,37 @@
  * The detail view is addressed with `?id=` rather than a `/contacts/[id]` route because
  * the app is a static export - a dynamic segment would need every person's id known at
  * build time, which is impossible for data that lives in someone's database.
+ *
+ * The list searches and pages rather than rendering everyone: a few dozen contacts is the
+ * common case, but a few hundred rows of avatars and balances is a slow screen on a phone.
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { Button } from '@/components/ui/Button';
 import { Card, SectionHeading } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { Fab } from '@/components/ui/Fab';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { ManagePeople } from '@/components/settings/ManagePeople';
+import { PersonSheet } from '@/components/contacts/PersonSheet';
+import { ShareButton } from '@/components/share/ShareButton';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionActions } from '@/components/transactions/TransactionActions';
 import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTranslation } from '@/components/providers/LanguageProvider';
+import { useToast } from '@/components/providers/ToastProvider';
 import { describePersonBalance } from '@/lib/calculations/balance';
 import { buildContactShareText } from '@/lib/export/share';
 import { todayIso } from '@/lib/format/date';
-import { ShareButton } from '@/components/share/ShareButton';
 import { formatRupees } from '@/lib/calculations/money';
-import type { TransactionType, TransactionWithBalance } from '@/types/transaction';
+import type { Person, TransactionType, TransactionWithBalance } from '@/types/transaction';
+
+/** Rows rendered before "show more"; a phone shows about eight at a time. */
+const PAGE_SIZE = 25;
 
 export default function ContactsPage() {
   return (
@@ -40,9 +48,16 @@ export default function ContactsPage() {
 }
 
 function Contacts() {
-  const { personBalances, ledger, status } = useLedger();
+  const { personBalances, ledger, status, addPerson, editPerson, removePerson } = useLedger();
   const { t } = useTranslation();
+  const { showToast } = useToast();
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [editing, setEditing] = useState<Person | 'new' | null>(null);
+  const [removing, setRemoving] = useState<Person | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [openEntry, setOpenEntry] = useState<TransactionWithBalance | null>(null);
 
@@ -58,9 +73,18 @@ function Contacts() {
   const selected = personBalances.find((entry) => entry.person.id === selectedId) ?? null;
 
   const theirEntries = useMemo(
-    () => (selected ? ledger.filter((entry) => entry.transaction.person_id === selected.person.id) : []),
+    () =>
+      selected ? ledger.filter((entry) => entry.transaction.person_id === selected.person.id) : [],
     [ledger, selected],
   );
+
+  const matches = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (needle === '') return personBalances;
+    return personBalances.filter(({ person }) => person.name.toLowerCase().includes(needle));
+  }, [personBalances, search]);
+
+  const visible = matches.slice(0, visibleCount);
 
   const openContact = (id: string) => {
     window.history.pushState(null, '', `/contacts/?id=${encodeURIComponent(id)}`);
@@ -71,6 +95,56 @@ function Contacts() {
     window.history.pushState(null, '', '/contacts/');
     setSelectedId(null);
   };
+
+  const savePerson = async (input: { name: string; relationship: Person['relationship'] }) => {
+    const result =
+      editing === 'new' || editing === null
+        ? await addPerson(input)
+        : await editPerson(editing.id, input);
+    if (result.ok) {
+      showToast({ tone: 'success', title: t('people.saved', { name: result.person.name }) });
+      setEditing(null);
+    }
+    return result;
+  };
+
+  const confirmRemove = async () => {
+    if (!removing) return;
+    setDeleting(true);
+    const result = await removePerson(removing.id);
+    setDeleting(false);
+
+    if (!result.ok) {
+      showToast({ tone: 'error', title: result.message });
+      return;
+    }
+    showToast({ tone: 'success', title: t('people.removed', { name: removing.name }) });
+    setRemoving(null);
+    backToList();
+  };
+
+  const sheets = (
+    <>
+      {editing ? (
+        <PersonSheet
+          person={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSave={savePerson}
+        />
+      ) : null}
+
+      <ConfirmDialog
+        open={removing !== null}
+        title={t('people.removeTitle')}
+        message={t('people.removeMessage', { name: removing?.name ?? '' })}
+        confirmLabel={t('entry.delete')}
+        destructive
+        busy={deleting}
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setRemoving(null)}
+      />
+    </>
+  );
 
   if (status === 'loading') {
     return (
@@ -189,6 +263,21 @@ function Contacts() {
               </div>
             )}
           </section>
+
+          {/* Editing and removing belong with the person, not on a separate admin list. */}
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              size="lg"
+              className="flex-1"
+              onClick={() => setRemoving(person)}
+            >
+              {t('contacts.remove')}
+            </Button>
+            <Button size="lg" className="flex-1" onClick={() => setEditing(person)}>
+              {t('contacts.manage')}
+            </Button>
+          </div>
         </div>
 
         <TransactionActions
@@ -203,6 +292,7 @@ function Contacts() {
             setOpenEntry(null);
           }}
         />
+        {sheets}
       </AppShell>
     );
   }
@@ -217,7 +307,7 @@ function Contacts() {
           : t('contacts.subtitle', { count: personBalances.length })
       }
     >
-      <div className="space-y-6">
+      <div className="space-y-4">
         {personBalances.length === 0 ? (
           <Card className="px-6 py-10 text-center">
             <p className="text-base font-semibold text-ink">{t('contacts.empty')}</p>
@@ -226,25 +316,56 @@ function Contacts() {
             </p>
           </Card>
         ) : (
-          <div className="card overflow-hidden p-0">
-            <PeopleBalances balances={personBalances} onSelect={openContact} />
-          </div>
+          <>
+            {/* Searching only earns its space once scrolling stops being enough. */}
+            {personBalances.length > 8 ? (
+              <div>
+                <label htmlFor="contact-search" className="sr-only">
+                  {t('contacts.search')}
+                </label>
+                <input
+                  id="contact-search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => {
+                    setSearch(event.target.value);
+                    setVisibleCount(PAGE_SIZE);
+                  }}
+                  placeholder={t('contacts.search')}
+                  enterKeyHint="search"
+                  className="field-input"
+                />
+              </div>
+            ) : null}
+
+            {matches.length === 0 ? (
+              <Card className="px-6 py-8 text-center">
+                <p className="text-[15px] text-ink-muted">{t('contacts.noMatch')}</p>
+              </Card>
+            ) : (
+              <div className="card overflow-hidden p-0">
+                <PeopleBalances balances={visible} onSelect={openContact} />
+              </div>
+            )}
+
+            {matches.length > visible.length ? (
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+              >
+                {t('history.showMore', {
+                  count: Math.min(PAGE_SIZE, matches.length - visible.length),
+                })}
+              </Button>
+            ) : null}
+          </>
         )}
-
-        <section>
-          <SectionHeading>{t('contacts.manage')}</SectionHeading>
-          <Card>
-            <ManagePeople />
-          </Card>
-        </section>
-
-        <Link
-          href="/transactions/"
-          className="flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface text-[15px] font-medium text-ink"
-        >
-          {t('dashboard.viewAll')}
-        </Link>
       </div>
+
+      <Fab label={t('contacts.add')} onClick={() => setEditing('new')} />
+      {sheets}
     </AppShell>
   );
 }

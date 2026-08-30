@@ -20,6 +20,10 @@ export const mr: Dictionary = {
   'contacts.notFound': 'ही व्यक्ती आता नाही.',
   'contacts.record': 'नवीन नोंद',
   'contacts.manage': 'व्यक्ती बदला',
+  'contacts.search': 'माणसे शोधा',
+  'contacts.add': 'व्यक्ती जोडा',
+  'contacts.noMatch': 'याने कोणी सापडले नाही.',
+  'contacts.remove': 'व्यक्ती काढा',
   'settings.contactsLink': 'माणसे सांभाळा',
   'share.whatsapp': 'WhatsApp वर पाठवा',
   'share.copied': 'कॉपी झाले — WhatsApp मध्ये पेस्ट करा.',
@@ -113,6 +117,7 @@ export const mr: Dictionary = {
   'form.error.note': 'टीप {max} अक्षरांपेक्षा मोठी असू शकत नाही.',
   'form.error.generic': 'काहीतरी चुकले. पुन्हा प्रयत्न करा.',
 
+  'people.more': 'आणखी {count} - नावाने शोधा',
   'people.addNew': '+ नवीन व्यक्ती',
   'people.close': 'बंद करा',
   'people.name': 'नाव',

@@ -5,15 +5,25 @@
  * are not on the list yet. Adding someone must not cost a trip to another screen: the
  * whole point of the app is recording money in a few seconds, and the first transaction
  * for a new person is exactly when you are standing in front of them.
+ *
+ * Only a handful of chips are rendered at once. A wrapped grid of hundreds of names is
+ * both slow and unusable on a phone - past a dozen people, typing two letters beats
+ * scrolling past everyone you have ever recorded.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/cn';
 import { Button } from '@/components/ui/Button';
 import { TextField } from '@/components/ui/Field';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { RELATIONSHIPS, type Person, type Relationship } from '@/types/transaction';
 import { useTranslation } from '@/components/providers/LanguageProvider';
+
+/** Chips rendered before the list asks you to search instead. */
+const CHIP_LIMIT = 12;
+
+/** Below this many people, scanning the chips is faster than typing. */
+const SEARCH_THRESHOLD = 8;
 
 interface PersonPickerProps {
   value: string;
@@ -30,12 +40,32 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
   const [relationship, setRelationship] = useState<Relationship>('MOTHER');
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   // With one person on the list there is nothing to choose: preselect them so the
   // common case stays a two-tap save.
   useEffect(() => {
     if (value === '' && people.length === 1) onChange(people[0]!.id);
   }, [people, value, onChange]);
+
+  const matches = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (needle === '') return people;
+    return people.filter((person) => person.name.toLowerCase().includes(needle));
+  }, [people, search]);
+
+  // Whoever is already selected stays on screen even when the search excludes them,
+  // so the form never looks like it has forgotten the answer you gave it.
+  const { visible, hidden } = useMemo(() => {
+    const selected = value === '' ? undefined : people.find((person) => person.id === value);
+    const pinned = selected && !matches.some((person) => person.id === value);
+    const room = pinned ? CHIP_LIMIT - 1 : CHIP_LIMIT;
+    const shown = matches.slice(0, room);
+    return {
+      visible: pinned ? [selected, ...shown] : shown,
+      hidden: matches.length - shown.length,
+    };
+  }, [matches, people, value]);
 
   const create = async () => {
     const trimmed = name.trim();
@@ -61,9 +91,22 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
     <fieldset>
       <legend className="field-label">{t('form.whose')}</legend>
 
+      {people.length > SEARCH_THRESHOLD ? (
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder={t('contacts.search')}
+          aria-label={t('contacts.search')}
+          enterKeyHint="search"
+          disabled={disabled}
+          className="field-input mb-2"
+        />
+      ) : null}
+
       {people.length > 0 ? (
         <div className="flex flex-wrap gap-2">
-          {people.map((person) => (
+          {visible.map((person) => (
             <PersonChip
               key={person.id}
               person={person}
@@ -82,6 +125,14 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
             {adding ? t('people.close') : t('people.addNew')}
           </button>
         </div>
+      ) : null}
+
+      {people.length > 0 && matches.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-muted">{t('contacts.noMatch')}</p>
+      ) : null}
+
+      {hidden > 0 ? (
+        <p className="mt-2 text-xs text-ink-faint">{t('people.more', { count: hidden })}</p>
       ) : null}
 
       {adding ? (

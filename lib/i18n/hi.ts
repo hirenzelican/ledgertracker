@@ -20,6 +20,10 @@ export const hi: Dictionary = {
   'contacts.notFound': 'ये व्यक्ति अब मौजूद नहीं है।',
   'contacts.record': 'नया लेन-देन',
   'contacts.manage': 'व्यक्ति बदलें',
+  'contacts.search': 'लोगों में खोजें',
+  'contacts.add': 'व्यक्ति जोड़ें',
+  'contacts.noMatch': 'इससे कोई नहीं मिला।',
+  'contacts.remove': 'व्यक्ति हटाएँ',
   'settings.contactsLink': 'लोग संभालें',
   'share.whatsapp': 'WhatsApp पर भेजें',
   'share.copied': 'कॉपी हो गया — WhatsApp में पेस्ट करें।',
@@ -114,6 +118,7 @@ export const hi: Dictionary = {
   'form.error.note': 'नोट {max} अक्षरों से लंबा नहीं हो सकता।',
   'form.error.generic': 'कुछ गड़बड़ हो गई। फिर कोशिश करें।',
 
+  'people.more': '{count} और - नाम से खोजें',
   'people.addNew': '+ नया व्यक्ति',
   'people.close': 'बंद करें',
   'people.name': 'नाम',

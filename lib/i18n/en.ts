@@ -26,6 +26,10 @@ export const en = {
   'contacts.notFound': 'That contact no longer exists.',
   'contacts.record': 'Record something',
   'contacts.manage': 'Edit contact',
+  'contacts.search': 'Search contacts',
+  'contacts.add': 'Add contact',
+  'contacts.noMatch': 'No contacts match that.',
+  'contacts.remove': 'Remove contact',
   'settings.contactsLink': 'Manage contacts',
   'share.whatsapp': 'Share on WhatsApp',
   'share.copied': 'Copied — paste it into WhatsApp.',
@@ -121,6 +125,7 @@ export const en = {
   'form.error.note': 'Note cannot be longer than {max} characters.',
   'form.error.generic': 'Something went wrong. Please try again.',
 
+  'people.more': '{count} more - search by name',
   'people.addNew': '+ Someone new',
   'people.close': 'Close',
   'people.name': 'Name',
