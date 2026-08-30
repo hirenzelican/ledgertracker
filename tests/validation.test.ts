@@ -7,7 +7,9 @@ import {
 import { parseBackup } from '@/lib/validation/backup';
 import { buildBackup, serializeBackup } from '@/lib/export/backup';
 import { transactionsToCsv } from '@/lib/export/csv';
-import { DEFAULT_PEOPLE, makeTransaction, t } from './helpers';
+import { MAX_SHARED_LINES, buildContactShareText, buildStatementShareText } from '@/lib/export/share';
+import { buildRunningBalances, buildStatement } from '@/lib/calculations/balance';
+import { DEFAULT_PEOPLE, makePerson, makeTransaction, t } from './helpers';
 
 const VALID_FORM = {
   person_id: 'person-1',
@@ -180,3 +182,67 @@ test('malformed backups are rejected with a readable reason', () => {
   }
 });
 
+
+test('a contact summary leads with the balance and shows the working', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'person-1');
+  const entries = buildRunningBalances([
+    makeTransaction({ date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ date: '2026-08-03', type: 'RETURNED', amount: '2000.00', method: 'CASH', note: 'Groceries' }),
+  ]).reverse();
+
+  const text = buildContactShareText(mother, 800_000, 1_000_000, 200_000, entries, '2026-08-26', t);
+  const lines = text.split('\n');
+
+  // The sentence that settles the argument comes first, in bold.
+  assert.equal(lines[0], '*Holding ₹8,000 for Mother*');
+  assert.equal(lines[1], 'as of 26 Aug 2026');
+  // Newest first, each line saying date, direction, amount, what and how.
+  assert.equal(lines[3], '3 Aug 2026 · − ₹2,000 · Given back · Cash · Groceries');
+  assert.equal(lines[4], '1 Aug 2026 · + ₹10,000 · To keep · Google Pay');
+  assert.equal(lines[6], 'In ₹10,000 · Out ₹2,000');
+  assert.equal(lines[lines.length - 1], '— Potli');
+});
+
+test('a long history is trimmed rather than dumped', () => {
+  const entries = buildRunningBalances(
+    Array.from({ length: 26 }, (_, index) =>
+      makeTransaction({
+        date: `2026-08-${String(index + 1).padStart(2, '0')}`,
+        type: 'RECEIVED',
+        amount: '100.00',
+      }),
+    ),
+  ).reverse();
+
+  const text = buildContactShareText(
+    makePerson('Ravi', 'BROTHER', 'person-2'),
+    260_000,
+    260_000,
+    0,
+    entries,
+    '2026-08-27',
+    t,
+  );
+  assert.ok(text.includes('...and 6 more'), text);
+  assert.equal(text.split('\n').filter((line) => line.includes('·')).length, MAX_SHARED_LINES + 1);
+});
+
+test('a statement summary carries the four figures a reader checks', () => {
+  const statement = buildStatement(
+    [
+      makeTransaction({ date: '2026-07-20', type: 'RECEIVED', amount: '5000.00' }),
+      makeTransaction({ date: '2026-08-05', type: 'RECEIVED', amount: '3000.00' }),
+      makeTransaction({ date: '2026-08-11', type: 'RETURNED', amount: '1000.00' }),
+    ],
+    '2026-08-01',
+    '2026-08-31',
+  );
+
+  const text = buildStatementShareText(statement, 'Mother', t);
+  assert.ok(text.startsWith("*Mother's statement*"));
+  assert.ok(text.includes('1 Aug 2026 – 31 Aug 2026'));
+  assert.ok(text.includes('Opening balance: ₹5,000'));
+  assert.ok(text.includes('Money in: + ₹3,000'));
+  assert.ok(text.includes('Money out: − ₹1,000'));
+  assert.ok(text.includes('*Closing balance: ₹7,000*'));
+});

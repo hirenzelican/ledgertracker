@@ -8,6 +8,8 @@ import { TransactionList } from '@/components/transactions/TransactionList';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { buildStatement, forPerson } from '@/lib/calculations/balance';
+import { buildStatementShareText } from '@/lib/export/share';
+import { ShareButton } from '@/components/share/ShareButton';
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
 import { endOfMonth, formatDateRange, startOfMonth, todayIso } from '@/lib/format/date';
@@ -139,6 +141,11 @@ function Statement() {
                   </dd>
                 </div>
               </dl>
+
+              <ShareButton
+                className="mt-5 w-full"
+                buildText={() => buildStatementShareText(statement, personName, t)}
+              />
             </section>
 
             <section>

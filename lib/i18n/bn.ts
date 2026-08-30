@@ -21,6 +21,12 @@ export const bn: Dictionary = {
   'contacts.record': 'নতুন লেনদেন',
   'contacts.manage': 'তথ্য বদলান',
   'settings.contactsLink': 'মানুষজন সামলান',
+  'share.whatsapp': 'WhatsApp-এ পাঠান',
+  'share.copied': 'কপি হয়েছে — WhatsApp-এ পেস্ট করুন।',
+  'share.failed': 'পাঠানো গেল না। আবার চেষ্টা করুন।',
+  'share.asOf': '{date} পর্যন্ত',
+  'share.more': '...আরও {count}টি',
+  'share.nothing': 'এখনও পাঠানোর মতো কিছু নেই।',
 
   'type.RECEIVED.action': 'উনি আমাকে দিয়েছেন',
   'type.RECEIVED.caption': 'রেখে দেওয়ার টাকা',

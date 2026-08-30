@@ -21,6 +21,12 @@ export const mr: Dictionary = {
   'contacts.record': 'नवीन नोंद',
   'contacts.manage': 'व्यक्ती बदला',
   'settings.contactsLink': 'माणसे सांभाळा',
+  'share.whatsapp': 'WhatsApp वर पाठवा',
+  'share.copied': 'कॉपी झाले — WhatsApp मध्ये पेस्ट करा.',
+  'share.failed': 'पाठवता आले नाही. पुन्हा प्रयत्न करा.',
+  'share.asOf': '{date} पर्यंत',
+  'share.more': '...आणि आणखी {count}',
+  'share.nothing': 'अजून पाठवण्यासारखे काही नाही.',
 
   'type.RECEIVED.action': 'त्यांनी मला दिले',
   'type.RECEIVED.caption': 'सांभाळण्यासाठीचे पैसे',

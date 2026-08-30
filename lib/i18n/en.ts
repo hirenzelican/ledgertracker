@@ -27,6 +27,12 @@ export const en = {
   'contacts.record': 'Record something',
   'contacts.manage': 'Edit contact',
   'settings.contactsLink': 'Manage contacts',
+  'share.whatsapp': 'Share on WhatsApp',
+  'share.copied': 'Copied — paste it into WhatsApp.',
+  'share.failed': 'Could not share that. Try again.',
+  'share.asOf': 'as of {date}',
+  'share.more': '...and {count} more',
+  'share.nothing': 'Nothing to share yet.',
 
   // The four kinds of entry. Said as a sentence, from your point of view, because
   // "received" and "repaid" are indistinguishable unless you say who did what.

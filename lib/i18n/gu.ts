@@ -21,6 +21,12 @@ export const gu: Dictionary = {
   'contacts.record': 'નવી નોંધ',
   'contacts.manage': 'વ્યક્તિ બદલો',
   'settings.contactsLink': 'લોકો સંભાળો',
+  'share.whatsapp': 'WhatsApp પર મોકલો',
+  'share.copied': 'કૉપી થયું — WhatsApp માં પેસ્ટ કરો.',
+  'share.failed': 'મોકલી શકાયું નહીં. ફરી પ્રયત્ન કરો.',
+  'share.asOf': '{date} સુધી',
+  'share.more': '...અને બીજા {count}',
+  'share.nothing': 'હજી મોકલવા જેવું કંઈ નથી.',
 
   'type.RECEIVED.action': 'એમણે મને આપ્યા',
   'type.RECEIVED.caption': 'સાચવવા માટેના પૈસા',

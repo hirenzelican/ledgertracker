@@ -25,6 +25,9 @@ import { TransactionSheet, type SheetMode } from '@/components/transactions/Tran
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { describePersonBalance } from '@/lib/calculations/balance';
+import { buildContactShareText } from '@/lib/export/share';
+import { todayIso } from '@/lib/format/date';
+import { ShareButton } from '@/components/share/ShareButton';
 import { formatRupees } from '@/lib/calculations/money';
 import type { TransactionType, TransactionWithBalance } from '@/types/transaction';
 
@@ -145,6 +148,21 @@ function Contacts() {
                 </dd>
               </div>
             </dl>
+
+            <ShareButton
+              className="mt-4 w-full"
+              buildText={() =>
+                buildContactShareText(
+                  person,
+                  balancePaise,
+                  moneyInPaise,
+                  moneyOutPaise,
+                  theirEntries,
+                  todayIso(),
+                  t,
+                )
+              }
+            />
           </section>
 
           <section>

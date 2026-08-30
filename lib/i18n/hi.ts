@@ -21,6 +21,12 @@ export const hi: Dictionary = {
   'contacts.record': 'नया लेन-देन',
   'contacts.manage': 'व्यक्ति बदलें',
   'settings.contactsLink': 'लोग संभालें',
+  'share.whatsapp': 'WhatsApp पर भेजें',
+  'share.copied': 'कॉपी हो गया — WhatsApp में पेस्ट करें।',
+  'share.failed': 'भेजा नहीं जा सका। फिर कोशिश करें।',
+  'share.asOf': '{date} तक',
+  'share.more': '...और {count} और',
+  'share.nothing': 'अभी भेजने के लिए कुछ नहीं।',
 
   'type.RECEIVED.action': 'उन्होंने मुझे दिए',
   'type.RECEIVED.caption': 'रखने के लिए पैसे',

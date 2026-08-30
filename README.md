@@ -65,6 +65,8 @@ money held for one person can never fund a return to another.
 - **Edit and delete** — with confirmation; all balances are recalculated from scratch.
 - **Statement** — opening balance, money in, money out and closing balance for a date
   range, for everyone or one person, plus the transactions in that period.
+- **Share** — send a contact's standing, or a statement for a period, as a WhatsApp
+  message: the balance in one sentence, then the transactions behind it.
 - **Backup** — CSV export, JSON backup and validated JSON restore.
 - **One mark, one source** — the bag logo is defined once in `lib/brand/logo.ts` and
   rendered both as SVG in the app and as the PNG icon set, so they cannot drift apart.
@@ -357,6 +359,23 @@ The translations shipped here were written for this app rather than machine-tran
 wholesale, but **they have not been reviewed by native speakers** - worth doing before a
 store launch. The connection-diagnostics panel on the login screen is deliberately left in
 English: it is a developer tool, and its wording matches this README.
+
+## Sharing a summary
+
+The share button on a contact's screen and on the statement builds a plain-text message -
+the balance in one sentence, then the entries behind it, newest first, trimmed to twenty
+lines. WhatsApp renders `*text*` as bold and little else reliably, so that is the only
+formatting used.
+
+Three routes are tried in order, because no one of them works everywhere: the system share
+sheet (`navigator.share`, where WhatsApp sits alongside everything else and the user picks
+the chat), then a `wa.me` link that opens WhatsApp with the message ready, then the
+clipboard for a desktop browser with neither. All three run inside the tap that started
+them, which browsers require.
+
+Contacts hold no phone number, so the share opens WhatsApp and lets you choose the chat. A
+number would save that tap by linking to `wa.me/<number>` directly - a small schema
+addition if it turns out to be worth it.
 
 ## Launch screen
 
