@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
+import { ConnectionCheck } from '@/components/layout/ConnectionCheck';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
@@ -114,11 +115,17 @@ function Dashboard() {
         ) : null}
 
         {status === 'error' && loadError ? (
-          <div className="card p-5 text-center">
-            <p className="text-[15px] text-ink">{loadError}</p>
-            <Button variant="secondary" className="mt-4" onClick={() => void refresh()}>
-              {t('common.tryAgain')}
-            </Button>
+          <div className="card p-5">
+            <p className="text-center text-[15px] text-ink">{loadError}</p>
+            <div className="mt-4 text-center">
+              <Button variant="secondary" onClick={() => void refresh()}>
+                {t('common.tryAgain')}
+              </Button>
+            </div>
+            {/* Signing in works but nothing loads: the usual cause is a database that has
+                not had the migrations run. This is the screen that failure lands on, so
+                the check that tells you belongs here rather than only on the login form. */}
+            <ConnectionCheck context="loading" />
           </div>
         ) : null}
 

@@ -484,9 +484,19 @@ probably still pending. Check your inbox, or turn off *Confirm email* in Supabas
 **Authentication → URL Configuration**. Add it and request a new link.
 
 **"Could not load your transactions."** Usually a migration has not been run, or RLS is
-enabled without the policies. Re-run them; they are safe to run more than once. If the app
-loads but every screen is empty, check that the last migration ran - the app reads through
-the `person_balances` and `transaction_ledger` views, which it creates.
+enabled without the policies. The error card on the home screen has a **Nothing loading?
+Check the database** panel that says which of the views and functions the database is
+missing, and which migration creates them - it works without signing in, because a missing
+migration breaks loading rather than signing in.
+
+To check from the other side, paste
+[`supabase/check-install.sql`](supabase/check-install.sql) into the Supabase SQL editor. It
+changes nothing and reports fourteen checks, including the one that matters most: that the
+views run as the *caller*, so row-level security still applies through them.
+
+If the objects exist in the database but the app still cannot see them, PostgREST is
+serving a cached schema. Run `notify pgrst, 'reload schema';` - `check-install.sql` does
+this for you at the end.
 
 **Everything saves but the list stays empty.** Rows exist with a different `user_id`
 (created before you signed in as this user). Check in the Supabase table editor.
