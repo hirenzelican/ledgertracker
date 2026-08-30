@@ -12,6 +12,11 @@ const ITEMS = [
     icon: 'M3 10.5 12 3l9 7.5M5.5 9.5V20h13V9.5',
   },
   {
+    href: '/contacts/',
+    labelKey: 'nav.contacts' as const,
+    icon: 'M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM21 19v-1a4 4 0 0 0-3-3.87M16.5 3.9a4 4 0 0 1 0 7.75',
+  },
+  {
     href: '/transactions/',
     labelKey: 'nav.transactions' as const,
     icon: 'M4 7h16M4 12h16M4 17h10',

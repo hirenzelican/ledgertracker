@@ -43,15 +43,19 @@ export function sortChronological(transactions: readonly Transaction[]): Transac
 
 /**
  * Walks the ledger oldest-first and attaches the balance after each transaction.
- * The returned array is in chronological (oldest first) order.
+ *
+ * The balance is that person's, not a total across everyone: each person is a separate
+ * pot, so a row showing what you hold for your mother must not include what your brother
+ * lent you. The returned array is in chronological (oldest first) order.
  */
 export function buildRunningBalances(
   transactions: readonly Transaction[],
 ): TransactionWithBalance[] {
-  let balancePaise = 0;
+  const balanceByPerson = new Map<string, number>();
   return sortChronological(transactions).map((transaction) => {
     const deltaPaise = signedDeltaPaise(transaction.type, amountToPaise(transaction.amount));
-    balancePaise += deltaPaise;
+    const balancePaise = (balanceByPerson.get(transaction.person_id) ?? 0) + deltaPaise;
+    balanceByPerson.set(transaction.person_id, balancePaise);
     return { transaction, deltaPaise, balanceAfterPaise: balancePaise };
   });
 }

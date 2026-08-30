@@ -322,3 +322,21 @@ test('running balances cross zero cleanly in both directions', () => {
     [100_000, 0, -60_000, -35_000],
   );
 });
+
+test('running balances are each person, not a total across everyone', () => {
+  const mother = makePerson('Mother', 'MOTHER', 'p-mother');
+  const ravi = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const running = buildRunningBalances([
+    makeTransaction({ personId: mother.id, date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-02', type: 'RECEIVED', amount: '4000.00' }),
+    makeTransaction({ personId: mother.id, date: '2026-08-03', type: 'RETURNED', amount: '2000.00' }),
+    makeTransaction({ personId: ravi.id, date: '2026-08-04', type: 'LENT', amount: '9000.00' }),
+  ]);
+
+  // Each row reports the pot it belongs to: mother 10,000 then 8,000; Ravi 4,000 then
+  // -5,000. A single accumulator would have read 10,000 / 14,000 / 12,000 / 3,000.
+  assert.deepEqual(
+    running.map((entry) => entry.balanceAfterPaise),
+    [1_000_000, 400_000, 800_000, -500_000],
+  );
+});

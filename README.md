@@ -49,9 +49,10 @@ money held for one person can never fund a return to another.
 
 - **Dashboard** — how much of other people's money you are holding, how much is owed to
   you, then a per-person breakdown, with four large buttons for recording money.
-- **People** — everyone whose money you hold, each with a relationship (mother, brother,
-  friend…) and their own balance. Added inline while recording, so a new person never
-  costs a detour.
+- **Contacts** — a tab of everyone whose money you hold or who owes you, each with a
+  relationship (mother, brother, friend…) and their own balance. Tap one for their screen:
+  their balance, buttons to record against them, and their history alone. People are also
+  added inline while recording, so a new contact never costs a detour.
 - **Record money** — four kinds, in two directions, each said as a sentence rather than
   an accounting term: *They gave me* (money to keep safe), *I gave back* (their money,
   returned), *I lent them* (my own money) and *They paid back* (my money, returned).
@@ -307,7 +308,7 @@ in history is rejected outright.
 ## Project structure
 
 ```
-app/                      routes: dashboard, login, transactions, statement, settings
+app/                      routes: dashboard, login, contacts, transactions, statement, settings
 components/
   dashboard/              balance card, quick actions, empty and welcome states
   transactions/           list, row, filters, detail/actions, add-edit sheet
@@ -393,8 +394,9 @@ Decisions that are load-bearing, in case a future change threatens one of them:
   ₹1,250.50 stays exact no matter how many times it is added.
 - **Balances are always derived.** `buildRunningBalances` and `calculateTotals` recompute
   from the transaction list on every render. Nothing writes a `balance_after` column.
-- **Each person is a separate pot.** Balances, guards and statements are all scoped per
-  person; the dashboard total is only ever a sum of them. Deleting someone who still has
+- **Each person is a separate pot.** Balances, running balances, guards and statements are
+  all scoped per person - a row showing what you hold for your mother never includes what
+  your brother lent you; the dashboard total is only ever a sum of them. Deleting someone who still has
   transactions is refused by the database rather than silently erasing their history.
 - **Nothing is refused, but surprises are explained.** Once lending is tracked, a negative
   balance is a real state rather than an impossible one, so no combination of entries is

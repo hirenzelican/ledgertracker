@@ -1,6 +1,6 @@
 /**
- * Filtering runs over entries that already carry their ledger-wide running balance, so
- * a filtered view never changes the balance shown against a transaction.
+ * Filtering runs over entries that already carry their running balance, so narrowing the
+ * view never changes the balance shown against a transaction.
  */
 
 import { TYPE_DIRECTION, type TransactionWithBalance } from '@/types/transaction';

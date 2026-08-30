@@ -66,7 +66,7 @@ test('filters by type, period and note search', () => {
   assert.equal(searched[0]?.transaction.note, 'Emergency requirement');
 });
 
-test('filtered rows keep their ledger-wide running balance', () => {
+test('filtered rows keep the running balance they were given', () => {
   const ledger = buildRunningBalances([
     makeTransaction({ date: '2026-08-01', type: 'RECEIVED', amount: '10000.00' }),
     makeTransaction({ date: '2026-08-02', type: 'RETURNED', amount: '2000.00' }),

@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/Button';
 import { Card, SectionHeading } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
-import { ManagePeople } from '@/components/settings/ManagePeople';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTheme, type ThemePreference } from '@/components/providers/ThemeProvider';
@@ -100,13 +99,6 @@ function Settings() {
         </section>
 
         <section>
-          <SectionHeading>{t('settings.people')}</SectionHeading>
-          <Card>
-            <ManagePeople />
-          </Card>
-        </section>
-
-        <section>
           <SectionHeading>{t('settings.data')}</SectionHeading>
           <Card className="space-y-3">
             <p className="text-sm text-ink-muted">
@@ -183,6 +175,16 @@ function Settings() {
               <span className="text-[15px] text-ink">{t('settings.currency')}</span>
               <span className="text-[15px] font-medium text-ink-muted">{t('settings.currencyValue')}</span>
             </div>
+
+            <Link
+              href="/contacts/"
+              className="flex min-h-[46px] items-center justify-between rounded-xl border border-border px-4 text-[15px] text-ink"
+            >
+              {t('settings.contactsLink')}
+              <span aria-hidden="true" className="text-ink-faint">
+                →
+              </span>
+            </Link>
 
             <Link
               href="/statement/"

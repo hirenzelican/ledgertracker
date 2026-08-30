@@ -14,6 +14,19 @@ export const en = {
   'nav.home': 'Home',
   'nav.transactions': 'Transactions',
   'nav.settings': 'Settings',
+  'nav.contacts': 'Contacts',
+  'contacts.title': 'Contacts',
+  'contacts.subtitle': '{count} people',
+  'contacts.subtitleOne': '1 person',
+  'contacts.empty': 'No contacts yet.',
+  'contacts.emptyBody': 'Add the people whose money you hold, or who owe you money.',
+  'contacts.back': 'All contacts',
+  'contacts.history': 'Their transactions',
+  'contacts.noHistory': 'Nothing recorded with them yet.',
+  'contacts.notFound': 'That contact no longer exists.',
+  'contacts.record': 'Record something',
+  'contacts.manage': 'Edit contact',
+  'settings.contactsLink': 'Manage contacts',
 
   // The four kinds of entry. Said as a sentence, from your point of view, because
   // "received" and "repaid" are indistinguishable unless you say who did what.
