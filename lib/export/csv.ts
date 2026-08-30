@@ -1,13 +1,27 @@
 /**
- * CSV export. Columns match the documented format exactly:
- * `Date,Type,Amount,Method,Note` with ISO dates and plain decimal amounts.
+ * CSV export and its column layout.
+ *
+ * `Date,Person,Relationship,Type,Amount,Method,Note,Tags` with ISO dates and plain
+ * decimal amounts. The same layout is what the importer expects, so a file exported here
+ * can be edited in a spreadsheet and read back without translation.
  */
 
 import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
 import { sortChronological } from '@/lib/calculations/balance';
 import type { Person, Transaction } from '@/types/transaction';
 
-const HEADER = 'Date,Person,Relationship,Type,Amount,Method,Note';
+export const CSV_COLUMNS = [
+  'Date',
+  'Person',
+  'Relationship',
+  'Type',
+  'Amount',
+  'Method',
+  'Note',
+  'Tags',
+] as const;
+
+const HEADER = CSV_COLUMNS.join(',');
 
 /**
  * Quotes a field when it contains a separator, quote or newline. A leading `=`, `+`,
@@ -36,6 +50,9 @@ export function transactionsToCsv(
       paiseToExportString(amountToPaise(transaction.amount)),
       transaction.method,
       csvField(transaction.note ?? ''),
+      // Semicolons, because a tag may contain a space but never a semicolon. Using
+      // commas would force the field to be quoted on every tagged row.
+      csvField((transaction.tags ?? []).join('; ')),
     ].join(','),
   );
   return [HEADER, ...rows].join('\r\n');

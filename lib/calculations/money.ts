@@ -96,6 +96,15 @@ export function formatSignedRupees(paise: number, type: 'RECEIVED' | 'RETURNED')
   return `${type === 'RECEIVED' ? '+' : '−'} ${formatRupees(Math.abs(paise))}`;
 }
 
+/**
+ * `10000.00` -> `"10000"`, `1250.50` -> `"1250.50"`, for a tidy edit field. Trailing
+ * zero paise are noise when re-editing an amount that was always whole rupees.
+ */
+export function stripTrailingPaise(amount: string | number): string {
+  const paise = amountToPaise(amount);
+  return paise % 100 === 0 ? String(paise / 100) : (paise / 100).toFixed(2);
+}
+
 /** Plain digits-and-dot rendering for CSV / JSON export. */
 export function paiseToExportString(paise: number): string {
   return paiseToRupeeString(paise);

@@ -16,6 +16,8 @@ const config: Config = {
         brand: 'rgb(var(--brand) / <alpha-value>)',
         'brand-ink': 'rgb(var(--brand-ink) / <alpha-value>)',
         'brand-soft': 'rgb(var(--brand-soft) / <alpha-value>)',
+        'chart-in': 'rgb(var(--chart-in) / <alpha-value>)',
+        'chart-out': 'rgb(var(--chart-out) / <alpha-value>)',
         received: 'rgb(var(--received) / <alpha-value>)',
         'received-soft': 'rgb(var(--received-soft) / <alpha-value>)',
         'received-ink': 'rgb(var(--received-ink) / <alpha-value>)',

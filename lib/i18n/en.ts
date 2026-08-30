@@ -101,6 +101,7 @@ export const en = {
   'person.balance.settled': 'Settled up with {name}',
 
   'form.whose': 'Whose money is this?',
+  'form.kind': 'Which way?',
   'form.amount': 'Amount',
   'form.amountAfter': 'After this: {result}',
   'form.source': 'How did it come?',
@@ -340,6 +341,95 @@ export const en = {
   'month.10': 'Oct',
   'month.11': 'Nov',
   'month.12': 'Dec',
+  /* --------------------------------------------------------------------------- tags */
+  'tags.label': 'Tags',
+  'tags.hint': 'Optional. Comma-separated.',
+  'tags.placeholder': 'rent, medical, school fees',
+  'tags.add': 'Add tag',
+  'tags.remove': 'Remove {tag}',
+  'tags.filter': 'Filter by tag',
+  'tags.none': 'No tags yet.',
+  'tags.suggestions': 'Used before',
+  'tags.clear': 'Clear tags',
+
+  /* ---------------------------------------------------------------------- recurring */
+  'recurring.title': 'Repeating entries',
+  'recurring.subtitle': 'Entries that come round again',
+  'recurring.subtitleCount': '{count} rules',
+  'recurring.manage': 'Repeating entries',
+  'recurring.manageHint': 'Rent, allowances, anything on a schedule.',
+  'recurring.add': 'Add a repeating entry',
+  'recurring.addTitle': 'New repeating entry',
+  'recurring.editTitle': 'Edit repeating entry',
+  'recurring.empty': 'Nothing repeats yet.',
+  'recurring.emptyBody':
+    'Set up rent, an allowance or anything else that comes round on a schedule. Potli will offer to add it when it falls due.',
+  'recurring.frequency': 'How often',
+  'recurring.startDate': 'Starting',
+  'recurring.endDate': 'Until (optional)',
+  'recurring.noEnd': 'No end date',
+  'recurring.nextDue': 'Next on {date}',
+  'recurring.overdue': 'Due now',
+  'recurring.paused': 'Paused',
+  'recurring.pause': 'Pause',
+  'recurring.resume': 'Resume',
+  'recurring.delete': 'Delete rule',
+  'recurring.deleteTitle': 'Delete this repeating entry?',
+  'recurring.deleteMessage':
+    'The entries it has already created are kept. Only the rule is removed.',
+  'recurring.saved': 'Repeating entry saved.',
+  'recurring.deleted': 'Repeating entry deleted.',
+  'recurring.dueTitle': '{count} entries are due',
+  'recurring.dueTitleOne': '1 entry is due',
+  'recurring.dueBody': 'Add them to your ledger now?',
+  'recurring.addNow': 'Add them',
+  'recurring.later': 'Not now',
+  'recurring.posted': '{count} entries added.',
+  'recurring.postedOne': '1 entry added.',
+  'recurring.postFailed': 'Could not add the due entries. Please try again.',
+  'frequency.WEEKLY': 'Every week',
+  'frequency.FORTNIGHTLY': 'Every two weeks',
+  'frequency.MONTHLY': 'Every month',
+  'frequency.QUARTERLY': 'Every three months',
+  'frequency.YEARLY': 'Every year',
+
+  /* ------------------------------------------------------------------------- trends */
+  'trends.title': 'Trends',
+  'trends.subtitle': 'How the balance has moved',
+  'trends.open': 'Trends',
+  'trends.balanceOverTime': 'Balance over time',
+  'trends.monthlyFlow': 'In and out each month',
+  'trends.period.6': '6 months',
+  'trends.period.12': '12 months',
+  'trends.period.24': '2 years',
+  'trends.empty': 'Not enough history yet.',
+  'trends.emptyBody': 'Record a few entries and the shape of your ledger will show up here.',
+  'trends.averageIn': 'Average in',
+  'trends.averageOut': 'Average out',
+  'trends.busiest': 'Busiest month',
+  'trends.highest': 'Highest balance',
+  'trends.everyone': 'Everyone',
+  'trends.chartLabel': 'Balance at the end of each month',
+  'trends.flowLabel': 'Money in and out for each month',
+  'trends.monthReading': '{month}: in {in}, out {out}, balance {balance}',
+
+  /* --------------------------------------------------------------------- CSV import */
+  'import.csvTitle': 'Import a CSV',
+  'import.csvHint': 'A spreadsheet with a Date, Person, Type and Amount column.',
+  'import.chooseCsv': 'Choose CSV file',
+  'import.csvColumns': 'Columns it reads',
+  'import.csvColumnsBody':
+    'Date, Person, Relationship, Type, Amount, Method, Note, Tags. Order does not matter, and the names can vary a little.',
+
+  /* --------------------------------------------------------------------------- PDF */
+  'statement.print': 'Save as PDF',
+  'statement.printHint': 'Opens your print sheet. Choose "Save as PDF".',
+  'statement.printedBy': 'Potli statement',
+  'statement.printedOn': 'Prepared {date}',
+
+  /* ------------------------------------------------------------------------- badge */
+  'settings.badge': 'Show a badge on the app icon',
+  'settings.badgeHint': 'Counts people who owe you money, and entries waiting to be added.',
 } as const;
 
 /** Every key the interface can ask for. */

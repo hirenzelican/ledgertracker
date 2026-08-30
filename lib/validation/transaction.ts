@@ -7,6 +7,7 @@
 import { MAX_AMOUNT_PAISE, formatRupees, parseAmountInput } from '@/lib/calculations/money';
 import type { Translate } from '@/lib/i18n/locales';
 import { isIsoDate } from '@/lib/format/date';
+import { normaliseTags } from './tags';
 import {
   isPaymentMethod,
   isTransactionType,
@@ -30,6 +31,8 @@ export interface RawTransactionForm {
   type: string;
   method: string;
   note: string;
+  /** As chips already entered; normalised again here so a crafted form cannot bypass it. */
+  tags?: readonly string[];
 }
 
 /**
@@ -93,6 +96,7 @@ export function validateTransactionForm(
       type: form.type as TransactionType,
       method: form.method as PaymentMethod,
       note: sanitizeNote(form.note),
+      tags: normaliseTags(form.tags ?? []),
     },
   };
 }

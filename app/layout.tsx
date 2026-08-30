@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { LedgerProvider } from '@/components/providers/LedgerProvider';
+import { RecurringProvider } from '@/components/providers/RecurringProvider';
 import { LanguageProvider } from '@/components/providers/LanguageProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
@@ -56,10 +57,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ToastProvider>
               <AuthProvider>
                 <LedgerProvider>
-                  {children}
-                  <SplashScreen />
-                  <Toaster />
-                  <ServiceWorkerRegistrar />
+                  {/* Inside the ledger, because posting a due entry has to reload it. */}
+                  <RecurringProvider>
+                    {children}
+                    <SplashScreen />
+                    <Toaster />
+                    <ServiceWorkerRegistrar />
+                  </RecurringProvider>
                 </LedgerProvider>
               </AuthProvider>
             </ToastProvider>

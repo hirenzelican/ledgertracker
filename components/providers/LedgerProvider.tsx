@@ -40,6 +40,7 @@ import {
   deleteAllTransactions,
   updateTransaction as updateTransactionRow,
 } from '@/lib/supabase/transactions';
+import { fetchTagCounts } from '@/lib/supabase/tags';
 import { toMessageKey } from '@/lib/supabase/errors';
 import { useTranslation } from './LanguageProvider';
 import { amountToPaise, formatRupees } from '@/lib/calculations/money';
@@ -54,6 +55,7 @@ import type {
   Person,
   PersonBalance,
   PersonInput,
+  TagCount,
   Transaction,
   TransactionInput,
   TransactionType,
@@ -85,6 +87,8 @@ interface LedgerContextValue {
   people: Person[];
   /** Per-person figures, most money held first. */
   personBalances: PersonBalance[];
+  /** Tags already in use, most-used first. Counted in the database, not here. */
+  tagCounts: TagCount[];
   /** How much is held for others, and how much others owe. */
   standing: Standing;
   totals: LedgerTotals;
@@ -185,6 +189,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
   const { t } = useTranslation();
   const [personBalances, setPersonBalances] = useState<PersonBalance[]>([]);
+  const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
   const [version, setVersion] = useState(0);
@@ -195,9 +200,11 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setStatus('loading');
     setLoadError(null);
     try {
-      const balances = await fetchPersonBalances();
+      // Both are small and independent, so they go together rather than in sequence.
+      const [balances, tags] = await Promise.all([fetchPersonBalances(), fetchTagCounts()]);
       if (currentRequest !== requestId.current) return;
       setPersonBalances(balances);
+      setTagCounts(tags);
       setStatus('ready');
     } catch (error) {
       if (currentRequest !== requestId.current) return;
@@ -210,8 +217,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
   const invalidate = useCallback(async () => {
     setVersion((current) => current + 1);
     try {
-      const balances = await fetchPersonBalances();
+      const [balances, tags] = await Promise.all([fetchPersonBalances(), fetchTagCounts()]);
       setPersonBalances(balances);
+      setTagCounts(tags);
     } catch {
       // A failed refresh leaves the previous figures on screen, which is better than
       // blanking them. The next mutation or a pull-to-refresh will try again.
@@ -224,6 +232,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     } else if (authStatus === 'signed-out' || authStatus === 'unconfigured') {
       requestId.current++;
       setPersonBalances([]);
+      setTagCounts([]);
       setStatus(authStatus === 'signed-out' ? 'ready' : 'error');
       setLoadError(authStatus === 'unconfigured' ? t('error.notConfigured') : null);
     }
@@ -461,6 +470,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
           amountPaise: row.amountPaise,
           method: row.method,
           note: row.note,
+          tags: row.tags ?? [],
         }));
 
         await insertTransactionsBatch(inputs, user.id);
@@ -482,6 +492,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     () => ({
       people,
       personBalances,
+      tagCounts,
       standing,
       totals,
       addPerson,
@@ -501,6 +512,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [
       people,
       personBalances,
+      tagCounts,
       standing,
       totals,
       addPerson,

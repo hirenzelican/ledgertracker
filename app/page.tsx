@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/layout/AppShell';
+import { AppBadge } from '@/components/layout/AppBadge';
 import { ConnectionCheck } from '@/components/layout/ConnectionCheck';
+import { DuePrompt } from '@/components/recurring/DuePrompt';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
@@ -104,6 +106,10 @@ function Dashboard() {
           <WelcomeCard onStart={() => openSheet('RECEIVED')} onDismiss={dismissWelcome} />
         ) : null}
 
+        {/* Above the balance on purpose: something is waiting to be recorded, and the
+            balance below it is not yet the whole truth until it is. */}
+        <DuePrompt />
+
         <BalanceCard totals={totals} standing={standing} />
 
         <QuickActions onAction={openSheet} />
@@ -146,16 +152,25 @@ function Dashboard() {
             <div className="card overflow-hidden p-0">
               <TransactionList entries={recent.entries} />
             </div>
-            <Link
-              href="/transactions/"
-              className="mt-3 flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface text-[15px] font-medium text-ink"
-            >
-              {t('dashboard.viewAll')}
-            </Link>
+            <div className="mt-3 grid grid-cols-2 gap-3">
+              <Link
+                href="/transactions/"
+                className="flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface text-[15px] font-medium text-ink"
+              >
+                {t('dashboard.viewAll')}
+              </Link>
+              <Link
+                href="/trends/"
+                className="flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface text-[15px] font-medium text-ink"
+              >
+                {t('trends.open')}
+              </Link>
+            </div>
           </section>
         ) : null}
       </div>
 
+      <AppBadge />
       <TransactionSheet mode={sheet} onClose={() => setSheet(null)} />
     </AppShell>
   );

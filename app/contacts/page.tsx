@@ -83,6 +83,7 @@ function Contacts() {
       search: '',
       from: null,
       to: null,
+      tags: [],
     }),
     [selectedId],
   );

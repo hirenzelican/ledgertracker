@@ -4,7 +4,10 @@
  * A backup carries only the user-owned fields of each transaction. `id`, `user_id` and
  * the timestamps are deliberately excluded: restoring into a different Supabase project
  * or account must not try to reuse foreign keys, and the ledger's meaning is fully
- * captured by date/type/amount/method/note.
+ * captured by date/type/amount/method/note/tags.
+ *
+ * Version 3 added tags. Older files simply have none, which reads as an empty set - so a
+ * version 1 or 2 backup still restores exactly as it did before.
  */
 
 import { amountToPaise, paiseToExportString } from '@/lib/calculations/money';
@@ -12,7 +15,7 @@ import { sortChronological } from '@/lib/calculations/balance';
 import type { Person, Transaction } from '@/types/transaction';
 
 export const BACKUP_FORMAT = 'potli-backup';
-export const BACKUP_VERSION = 2;
+export const BACKUP_VERSION = 3;
 
 export interface BackupTransaction {
   /** The person by name: ids are meaningless in another project or account. */
@@ -23,6 +26,7 @@ export interface BackupTransaction {
   amount: string;
   method: string;
   note: string | null;
+  tags: string[];
 }
 
 export interface BackupFile {
@@ -53,6 +57,7 @@ export function buildBackup(
       amount: paiseToExportString(amountToPaise(transaction.amount)),
       method: transaction.method,
       note: transaction.note,
+      tags: transaction.tags ?? [],
     })),
   };
 }

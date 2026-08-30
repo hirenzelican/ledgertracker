@@ -14,6 +14,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { parseBackup, type ParsedBackup } from '@/lib/validation/backup';
+import { parseCsvImport } from '@/lib/validation/csv';
 import { formatDisplayDate } from '@/lib/format/date';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 
@@ -29,6 +30,11 @@ export function ImportBackup() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /**
+   * One path for both formats. A CSV and a JSON backup produce the same validated rows,
+   * so everything after parsing - the duplicate check, the merge-or-replace choice, the
+   * insert - is shared. Two importers would have meant two ideas of what a duplicate is.
+   */
   const handleFile = async (file: File) => {
     setError(null);
     if (file.size > MAX_FILE_BYTES) {
@@ -54,7 +60,10 @@ export function ImportBackup() {
       return;
     }
 
-    const result = parseBackup(text, existing, people);
+    const isCsv = file.name.toLowerCase().endsWith('.csv') || file.type === 'text/csv';
+    const result = isCsv
+      ? parseCsvImport(text, existing, people)
+      : parseBackup(text, existing, people);
     if (!result.ok) {
       showToast({ tone: 'error', title: t('import.invalid'), description: result.message });
       return;
@@ -104,7 +113,7 @@ export function ImportBackup() {
       <input
         ref={fileInput}
         type="file"
-        accept="application/json,.json"
+        accept="application/json,.json,text/csv,.csv"
         className="sr-only"
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -121,6 +130,14 @@ export function ImportBackup() {
       >
         {t('settings.importJson')}
       </Button>
+      <details className="mt-2 rounded-xl border border-border bg-surface px-4 py-3 text-sm">
+        <summary className="cursor-pointer list-none font-medium text-ink-muted">
+          {t('import.csvTitle')}
+        </summary>
+        <p className="mt-2 text-ink-faint">{t('import.csvHint')}</p>
+        <p className="mt-2 font-medium text-ink-muted">{t('import.csvColumns')}</p>
+        <p className="mt-1 text-ink-faint">{t('import.csvColumnsBody')}</p>
+      </details>
 
       <Sheet
         open={pending !== null}

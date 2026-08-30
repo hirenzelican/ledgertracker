@@ -8,9 +8,10 @@
 
 import { useMemo, useState } from 'react';
 import { AmountField, ChoiceGroup, Field, TextField } from '@/components/ui/Field';
+import { TagField } from './TagField';
 import { PersonPicker } from './PersonPicker';
 import { Button } from '@/components/ui/Button';
-import { parseAmountInput } from '@/lib/calculations/money';
+import { parseAmountInput, stripTrailingPaise } from '@/lib/calculations/money';
 import { describePersonBalance } from '@/lib/calculations/balance';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { todayIso } from '@/lib/format/date';
@@ -60,7 +61,7 @@ export function TransactionForm({
   onCancel,
 }: TransactionFormProps) {
   const online = useOnlineStatus();
-  const { people } = useLedger();
+  const { people, tagCounts } = useLedger();
   const { t } = useTranslation();
   const [type, setType] = useState<TransactionType>(initial?.type ?? initialType);
   const [personId, setPersonId] = useState(initial?.person_id ?? initialPersonId ?? '');
@@ -70,6 +71,7 @@ export function TransactionForm({
   const [method, setMethod] = useState<PaymentMethod>(initial?.method ?? 'GOOGLE_PAY');
   const [date, setDate] = useState(initial?.transaction_date ?? todayIso());
   const [note, setNote] = useState(initial?.note ?? '');
+  const [tags, setTags] = useState<string[]>(initial?.tags ?? []);
   const [errors, setErrors] = useState<Partial<Record<FieldName, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   /** Set when the save was only a warning, offering the user the last word. */
@@ -100,6 +102,7 @@ export function TransactionForm({
         type,
         method,
         note,
+        tags,
       },
       t,
     );
@@ -203,6 +206,8 @@ export function TransactionForm({
         autoComplete="off"
       />
 
+      <TagField value={tags} onChange={setTags} suggestions={tagCounts} disabled={saving} />
+
       {formError ? (
         <div role="alert" className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
           <p className="font-medium">{formError}</p>
@@ -243,8 +248,3 @@ export function TransactionForm({
   );
 }
 
-/** `10000.00` -> `"10000"`, `1250.50` -> `"1250.50"` for a tidy edit field. */
-function stripTrailingPaise(amount: string | number): string {
-  const paise = amountToPaise(amount);
-  return paise % 100 === 0 ? String(paise / 100) : (paise / 100).toFixed(2);
-}

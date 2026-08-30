@@ -51,11 +51,51 @@ export function TransactionFilters({
   period,
   onPeriodChange,
 }: TransactionFiltersProps) {
-  const { people } = useLedger();
+  const { people, tagCounts } = useLedger();
   const { t } = useTranslation();
+
+  const toggleTag = (tag: string) =>
+    onChange({
+      ...filter,
+      tags: filter.tags.includes(tag)
+        ? filter.tags.filter((entry) => entry !== tag)
+        : [...filter.tags, tag],
+    });
 
   return (
     <div className="space-y-3">
+      {tagCounts.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1" aria-label={t('tags.filter')}>
+          {filter.tags.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => onChange({ ...filter, tags: [] })}
+              className="min-h-[34px] shrink-0 rounded-full border border-border bg-surface px-3 text-sm font-medium text-ink-muted"
+            >
+              {t('tags.clear')}
+            </button>
+          ) : null}
+          {tagCounts.map((entry) => {
+            const active = filter.tags.includes(entry.tag);
+            return (
+              <button
+                key={entry.tag}
+                type="button"
+                aria-pressed={active}
+                onClick={() => toggleTag(entry.tag)}
+                className={cn(
+                  'min-h-[34px] shrink-0 rounded-full border px-3 text-sm font-medium transition',
+                  active
+                    ? 'border-brand bg-brand-soft text-ink'
+                    : 'border-border bg-surface text-ink-muted',
+                )}
+              >
+                {entry.tag}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {people.length > 1 ? (
         <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Filter by person">
           <FilterChip

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { Button } from '@/components/ui/Button';
@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
+import { badgeEnabled, badgingSupported, setBadgeEnabled } from '@/components/layout/AppBadge';
 import type { Transaction } from '@/types/transaction';
 import { useTheme, type ThemePreference } from '@/components/providers/ThemeProvider';
 import {
@@ -50,6 +51,14 @@ function Settings() {
   const { showToast } = useToast();
   const { t, locale, setLocale } = useTranslation();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
+
+  // Read once on mount: both touch APIs that do not exist during the static export.
+  const [badgeSupported, setBadgeSupported] = useState(false);
+  const [badgeOn, setBadgeOn] = useState(true);
+  useEffect(() => {
+    setBadgeSupported(badgingSupported());
+    setBadgeOn(badgeEnabled());
+  }, []);
 
   /**
    * An export is the one place the whole ledger is genuinely the point, so it is fetched
@@ -190,6 +199,28 @@ function Settings() {
               </div>
             </fieldset>
 
+            {/* Only offered where it can work: on iOS and in a browser tab there is no
+                icon to badge, and a switch that does nothing is worse than no switch. */}
+            {badgeSupported ? (
+              <label className="flex items-start justify-between gap-4">
+                <span>
+                  <span className="block text-[15px] text-ink">{t('settings.badge')}</span>
+                  <span className="mt-0.5 block text-sm text-ink-faint">
+                    {t('settings.badgeHint')}
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={badgeOn}
+                  onChange={(event) => {
+                    setBadgeEnabled(event.target.checked);
+                    setBadgeOn(event.target.checked);
+                  }}
+                  className="mt-1 h-6 w-6 shrink-0 accent-brand"
+                />
+              </label>
+            ) : null}
+
             <div className="flex items-center justify-between">
               <span className="text-[15px] text-ink">{t('settings.currency')}</span>
               <span className="text-[15px] font-medium text-ink-muted">{t('settings.currencyValue')}</span>
@@ -200,6 +231,26 @@ function Settings() {
               className="flex min-h-[46px] items-center justify-between rounded-xl border border-border px-4 text-[15px] text-ink"
             >
               {t('settings.contactsLink')}
+              <span aria-hidden="true" className="text-ink-faint">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/recurring/"
+              className="flex min-h-[46px] items-center justify-between rounded-xl border border-border px-4 text-[15px] text-ink"
+            >
+              {t('recurring.manage')}
+              <span aria-hidden="true" className="text-ink-faint">
+                →
+              </span>
+            </Link>
+
+            <Link
+              href="/trends/"
+              className="flex min-h-[46px] items-center justify-between rounded-xl border border-border px-4 text-[15px] text-ink"
+            >
+              {t('trends.open')}
               <span aria-hidden="true" className="text-ink-faint">
                 →
               </span>

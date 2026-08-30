@@ -132,7 +132,8 @@ Open the Supabase SQL editor and run the migrations in order -
 [`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql),
 [`20260826010000_two_way_tracking.sql`](supabase/migrations/20260826010000_two_way_tracking.sql),
 [`20260830000000_contact_details.sql`](supabase/migrations/20260830000000_contact_details.sql), then
-[`20260830010000_server_side_paging.sql`](supabase/migrations/20260830010000_server_side_paging.sql) -
+[`20260830010000_server_side_paging.sql`](supabase/migrations/20260830010000_server_side_paging.sql), then
+[`20260831000000_tags_recurring_trends.sql`](supabase/migrations/20260831000000_tags_recurring_trends.sql) -
 or apply them with the CLI:
 
 ```bash
@@ -440,6 +441,13 @@ Decisions that are load-bearing, in case a future change threatens one of them:
   nothing on a normal screen may fetch an unbounded number of rows. Exports, backups and
   the duplicate check during a restore genuinely need everything, so they fetch it on
   demand (`fetchAllTransactions`) rather than the app holding it all session.
+- **A repeating entry is a promise, not money.** A rule in `recurring_transactions`
+  affects no balance anywhere; only the transaction it eventually creates does. Nothing
+  posts on a schedule - a static app has no server to run one, and inserting financial
+  records nobody agreed to would be the wrong thing to do even if it could. What is due
+  is offered on the home screen, and `post_due_recurring` inserts the row and advances
+  the rule in one statement, so two phones opening on the same morning cannot both
+  create the rent entry.
 - **A page of rows is self-sufficient.** Each row carries its own running balance from the
   view, so row 900 renders the same figure it would have if rows 1-899 had been fetched.
   This is what makes paging safe rather than merely fast; without it a "show more" would

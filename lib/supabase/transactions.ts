@@ -23,7 +23,7 @@ import type {
 const TABLE = 'transactions';
 const VIEW = 'transaction_ledger';
 const COLUMNS =
-  'id,user_id,person_id,transaction_date,type,amount,method,note,created_at,updated_at';
+  'id,user_id,person_id,transaction_date,type,amount,method,note,tags,created_at,updated_at';
 const VIEW_COLUMNS = `${COLUMNS},running_balance`;
 
 /** A `transaction_ledger` row: a transaction plus the balance that followed it. */
@@ -71,6 +71,9 @@ export async function fetchLedgerPage(
 
   const needle = safeSearch(query.search);
   if (needle !== '') request = request.ilike('note', `%${needle}%`);
+  // `contains` is array containment, so several tags narrow rather than widen: a row must
+  // carry all of them. It is the GIN index's operator, so this stays cheap.
+  if (query.tags.length > 0) request = request.contains('tags', query.tags);
 
   const { data, error, count } = await request
     .order('transaction_date', { ascending: false })
@@ -100,6 +103,9 @@ export async function fetchLedgerSummary(query: LedgerQuery): Promise<LedgerSumm
     p_search: needle === '' ? null : needle,
     p_from: query.from,
     p_to: query.to,
+    // Must match the list's filter exactly, or the summary line counts rows the list is
+    // not showing and the screen disagrees with itself.
+    p_tags: query.tags.length > 0 ? query.tags : null,
   });
 
   if (error) throw error;
@@ -150,6 +156,7 @@ export async function fetchAllTransactions(): Promise<Transaction[]> {
     search: '',
     from: null,
     to: null,
+    tags: [],
   });
   return entries.map((entry) => entry.transaction);
 }
@@ -162,6 +169,7 @@ function toRow(input: TransactionInput) {
     amount: paiseToRupeeString(input.amountPaise),
     method: input.method,
     note: input.note === '' ? null : input.note,
+    tags: input.tags,
   };
 }
 

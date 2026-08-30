@@ -20,6 +20,7 @@ export function makeTransaction(overrides: {
   amount: string;
   method?: PaymentMethod;
   note?: string | null;
+  tags?: string[];
   createdAt?: string;
 }): Transaction {
   sequence += 1;
@@ -34,6 +35,7 @@ export function makeTransaction(overrides: {
     amount: overrides.amount,
     method: overrides.method ?? 'GOOGLE_PAY',
     note: overrides.note ?? null,
+    tags: overrides.tags ?? [],
     created_at: createdAt,
     updated_at: createdAt,
   };

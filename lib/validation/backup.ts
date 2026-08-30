@@ -11,6 +11,7 @@ import { MAX_AMOUNT_PAISE, amountToPaise } from '@/lib/calculations/money';
 import { isIsoDate } from '@/lib/format/date';
 import { BACKUP_FORMAT } from '@/lib/export/backup';
 import { MAX_NOTE_LENGTH, sanitizeNote } from './transaction';
+import { normaliseTags } from './tags';
 import {
   isPaymentMethod,
   isRelationship,
@@ -37,6 +38,7 @@ export interface BackupRowInput {
   amountPaise: number;
   method: PaymentMethod;
   note: string;
+  tags: string[];
 }
 
 export interface ParsedBackup {
@@ -58,8 +60,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Identity used for duplicate detection: same day, direction, amount, method and note. */
-function fingerprint(input: {
+/**
+ * Identity used for duplicate detection: same day, direction, amount, method and note.
+ * Exported so the CSV importer decides "already there" by exactly the same rule - two
+ * definitions would mean a row that is a duplicate on one path and not on the other.
+ */
+export function fingerprint(input: {
   personName: string;
   transaction_date: string;
   type: string;
@@ -148,9 +154,19 @@ export function parseBackup(
       amount,
       method,
       note,
+      tags,
       person,
       person_relationship: personRelationship,
     } = row;
+
+    // Absent in backups written before version 3, which is not an error - those ledgers
+    // simply had no tags.
+    if (tags !== undefined && !Array.isArray(tags)) {
+      return { ok: false, message: `Transaction ${position} has invalid tags.` };
+    }
+    const cleanTags = normaliseTags(
+      Array.isArray(tags) ? tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    );
 
     if (person !== undefined && (typeof person !== 'string' || person.trim() === '')) {
       return { ok: false, message: `Transaction ${position} has an invalid person.` };
@@ -199,6 +215,7 @@ export function parseBackup(
       amountPaise,
       method,
       note: cleanNote,
+      tags: cleanTags,
     };
 
     const key = fingerprint(input);

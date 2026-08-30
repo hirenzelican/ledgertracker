@@ -85,6 +85,20 @@ export function TransactionRow({
             ) : null}
           </span>
         </span>
+        {/* Tags sit on their own line: they are how a row is found again, so they must
+            stay legible rather than being truncated away at the end of the note. */}
+        {transaction.tags && transaction.tags.length > 0 ? (
+          <span className="mt-1 flex flex-wrap gap-1">
+            {transaction.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] font-medium text-ink-muted"
+              >
+                {tag}
+              </span>
+            ))}
+          </span>
+        ) : null}
       </span>
     </>
   );

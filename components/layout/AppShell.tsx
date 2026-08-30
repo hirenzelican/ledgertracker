@@ -22,7 +22,7 @@ export function AppShell({ title, subtitle, action, children }: AppShellProps) {
   return (
     <div className="min-h-dvh bg-surface-sunken">
       <OfflineBanner />
-      <header className="sticky top-0 z-30 border-b border-border bg-surface-sunken/90 backdrop-blur">
+      <header className="no-print sticky top-0 z-30 border-b border-border bg-surface-sunken/90 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2.5">
             <PotliLogo className="h-8 w-8 shrink-0" />

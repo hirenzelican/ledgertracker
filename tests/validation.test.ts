@@ -69,15 +69,16 @@ test('CSV export matches the documented format', () => {
       amount: '5000.00',
       method: 'CASH',
       note: 'Monthly savings',
+      tags: ['rent', 'medical'],
     }),
   ];
   assert.equal(
     transactionsToCsv(ledger, DEFAULT_PEOPLE),
     [
-      'Date,Person,Relationship,Type,Amount,Method,Note',
-      '2026-08-20,Mother,MOTHER,RECEIVED,10000.00,GOOGLE_PAY,',
-      '2026-08-22,Mother,MOTHER,RETURNED,2000.00,GOOGLE_PAY,Emergency',
-      '2026-08-25,Mother,MOTHER,RECEIVED,5000.00,CASH,Monthly savings',
+      'Date,Person,Relationship,Type,Amount,Method,Note,Tags',
+      '2026-08-20,Mother,MOTHER,RECEIVED,10000.00,GOOGLE_PAY,,',
+      '2026-08-22,Mother,MOTHER,RETURNED,2000.00,GOOGLE_PAY,Emergency,',
+      '2026-08-25,Mother,MOTHER,RECEIVED,5000.00,CASH,Monthly savings,rent; medical',
     ].join('\r\n'),
   );
 });
@@ -88,8 +89,8 @@ test('CSV quotes separators and neutralises formula-looking notes', () => {
     makeTransaction({ date: '2026-08-21', type: 'RECEIVED', amount: '1.00', note: '=SUM(A1)' }),
   ];
   const lines = transactionsToCsv(ledger, DEFAULT_PEOPLE).split('\r\n');
-  assert.equal(lines[1], '2026-08-20,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,"a,b ""c"""');
-  assert.equal(lines[2], "2026-08-21,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,'=SUM(A1)");
+  assert.equal(lines[1], '2026-08-20,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,"a,b ""c""",');
+  assert.equal(lines[2], "2026-08-21,Mother,MOTHER,RECEIVED,1.00,GOOGLE_PAY,'=SUM(A1),");
 });
 
 test('a backup round-trips through export and import', () => {

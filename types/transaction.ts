@@ -91,6 +91,8 @@ export interface Transaction {
   amount: string | number;
   method: PaymentMethod;
   note: string | null;
+  /** Free labels: rent, medical, school. Lower-cased and de-duplicated before saving. */
+  tags: string[];
   created_at: string;
   updated_at: string;
 }
@@ -104,6 +106,7 @@ export interface TransactionInput {
   amountPaise: number;
   method: PaymentMethod;
   note: string;
+  tags: string[];
 }
 
 /** A transaction decorated with the balance that existed immediately after it. */
@@ -131,6 +134,8 @@ export interface LedgerQuery {
   /** Inclusive ISO date bounds; null means unbounded. */
   from: string | null;
   to: string | null;
+  /** Every tag listed must be present on a row for it to match. Empty means no filter. */
+  tags: string[];
 }
 
 export const EMPTY_QUERY: LedgerQuery = {
@@ -139,6 +144,7 @@ export const EMPTY_QUERY: LedgerQuery = {
   search: '',
   from: null,
   to: null,
+  tags: [],
 };
 
 /** One page of history, plus how many rows the whole query matches. */
@@ -175,4 +181,77 @@ export function isTransactionType(value: unknown): value is TransactionType {
 
 export function isPaymentMethod(value: unknown): value is PaymentMethod {
   return typeof value === 'string' && (PAYMENT_METHODS as readonly string[]).includes(value);
+}
+
+/* ------------------------------------------------------------------------- tags */
+
+/** A tag the user has used, and how often. */
+export interface TagCount {
+  tag: string;
+  count: number;
+  lastUsed: string;
+}
+
+/* -------------------------------------------------------------------- recurring */
+
+export const FREQUENCIES = ['WEEKLY', 'FORTNIGHTLY', 'MONTHLY', 'QUARTERLY', 'YEARLY'] as const;
+export type Frequency = (typeof FREQUENCIES)[number];
+
+export function isFrequency(value: unknown): value is Frequency {
+  return typeof value === 'string' && (FREQUENCIES as readonly string[]).includes(value);
+}
+
+/**
+ * A transaction that has not happened yet, and the rule for when it will.
+ *
+ * This is a promise, not a balance: until the transaction it describes exists, it counts
+ * for nothing anywhere in the app. Nothing here is ever added to a total.
+ */
+export interface Recurrence {
+  id: string;
+  user_id: string;
+  person_id: string;
+  type: TransactionType;
+  amount: string | number;
+  method: PaymentMethod;
+  note: string | null;
+  tags: string[];
+  frequency: Frequency;
+  /**
+   * The day the rule is meant to land on, kept so a monthly rule set on the 31st returns
+   * to the 31st after a short month instead of drifting earlier every time.
+   */
+  day_of_month: number | null;
+  start_date: string;
+  end_date: string | null;
+  /** The next date this falls due. Advanced by the database as entries are posted. */
+  next_due: string;
+  last_posted_date: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecurrenceInput {
+  person_id: string;
+  type: TransactionType;
+  amountPaise: number;
+  method: PaymentMethod;
+  note: string;
+  tags: string[];
+  frequency: Frequency;
+  start_date: string;
+  end_date: string | null;
+}
+
+/* ----------------------------------------------------------------------- trends */
+
+/** One calendar month of activity, and the balance at the end of it. */
+export interface MonthlyTotal {
+  /** First day of the month, `YYYY-MM-01`. */
+  month: string;
+  moneyInPaise: number;
+  moneyOutPaise: number;
+  /** Balance across everything up to and including this month. */
+  closingBalancePaise: number;
 }

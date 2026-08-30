@@ -12,6 +12,7 @@
 
 import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import { Button } from '@/components/ui/Button';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { TransactionList } from '@/components/transactions/TransactionList';
@@ -23,7 +24,7 @@ import { buildStatementShareText } from '@/lib/export/share';
 import { ShareButton } from '@/components/share/ShareButton';
 import { cn } from '@/lib/cn';
 import { formatRupees } from '@/lib/calculations/money';
-import { endOfMonth, formatDateRange, startOfMonth, todayIso } from '@/lib/format/date';
+import { endOfMonth, formatDateRange, formatDisplayDate, startOfMonth, todayIso } from '@/lib/format/date';
 
 export default function StatementPage() {
   return (
@@ -52,6 +53,7 @@ function Statement() {
       search: '',
       from: startDate,
       to: endDate,
+      tags: [],
     }),
     [personId, startDate, endDate],
   );
@@ -80,9 +82,18 @@ function Statement() {
 
   return (
     <AppShell title={t('statement.title')} subtitle={t('statement.subtitle')}>
+      {/* Only the printed copy needs to say what it is and when it was made; on screen
+          the app's own header already says both. */}
+      <header className="print-only mb-4 border-b border-border pb-3">
+        <p className="text-lg font-bold text-ink">{t('statement.printedBy')}</p>
+        <p className="text-sm text-ink-muted">
+          {t('statement.printedOn', { date: formatDisplayDate(today, t) })}
+        </p>
+      </header>
+
       <div className="space-y-4">
         {people.length > 1 ? (
-          <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Statement for">
+          <div className="no-print flex gap-2 overflow-x-auto pb-1" aria-label="Statement for">
             {[{ id: null, name: t('history.filter.everyone') }, ...people].map((option) => (
               <button
                 key={option.id ?? 'all'}
@@ -102,7 +113,7 @@ function Statement() {
           </div>
         ) : null}
 
-        <section className="card p-4">
+        <section className="no-print card p-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor="statement-start" className="field-label">
@@ -174,10 +185,21 @@ function Statement() {
                 </div>
               </dl>
 
-              <ShareButton
-                className="mt-5 w-full"
-                buildText={() => buildStatementShareText(statement, personName, t)}
-              />
+              <div className="no-print mt-5 space-y-2">
+                <ShareButton
+                  className="w-full"
+                  buildText={() => buildStatementShareText(statement, personName, t)}
+                />
+                <Button
+                  variant="secondary"
+                  size="lg"
+                  className="w-full"
+                  onClick={() => window.print()}
+                >
+                  {t('statement.print')}
+                </Button>
+                <p className="text-center text-xs text-ink-faint">{t('statement.printHint')}</p>
+              </div>
             </section>
 
             <section>

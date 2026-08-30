@@ -150,6 +150,29 @@ writeFileSync(
 );
 run(seed);
 
+writeFileSync(
+  join(scratch, 'tags.sql'),
+  `update public.transactions set tags = '{rent}' where id = '${uuid('t1')}';
+   update public.transactions set tags = '{rent,urgent}' where id = '${uuid('t2')}';`,
+);
+
+writeFileSync(
+  join(scratch, 'rules.sql'),
+  `insert into public.recurring_transactions
+     (user_id, person_id, type, amount, method, note, frequency, day_of_month, start_date, next_due)
+   values ('${USER_A}', '${uuid('p1')}', 'RECEIVED', 5000, 'BANK_TRANSFER', 'Allowance',
+           'MONTHLY', 31, '2026-01-31', '2026-01-31');`,
+);
+
+writeFileSync(
+  join(scratch, 'dormant.sql'),
+  `delete from public.recurring_transactions;
+   insert into public.recurring_transactions
+     (user_id, person_id, type, amount, method, frequency, day_of_month, start_date, next_due)
+   values ('${USER_A}', '${uuid('p1')}', 'RECEIVED', 100, 'CASH', 'MONTHLY', 1,
+           '2021-01-01', '2021-01-01');`,
+);
+
 /** The same seed as the TypeScript sees it, for the reference calculations. */
 const tsPeople = PEOPLE.filter((p) => p.user === USER_A).map((p) => ({
   id: uuid(p.id),
@@ -340,11 +363,105 @@ check(
   JSON.stringify(otherUser),
 );
 
+/* ------------------------------------------- tags, recurrence dates, monthly totals */
+
+console.log('\n== Tag containment narrows rather than widens ==');
+run(join(scratch, 'tags.sql'));
+const taggedBoth = query(
+  `select count(*)::int as n from public.transactions where tags @> '{rent,urgent}'`,
+  { asUser: USER_A },
+);
+const taggedOne = query(
+  `select count(*)::int as n from public.transactions where tags @> '{rent}'`,
+  { asUser: USER_A },
+);
+check('one tag matches both rows', taggedOne[0].n === 2, `${taggedOne[0].n}`);
+check('two tags match only the row carrying both', taggedBoth[0].n === 1, `${taggedBoth[0].n}`);
+
+const [tagSummary] = query(
+  `select * from public.ledger_summary(null, 'ALL', null, null, null, '{rent}')`,
+  { asUser: USER_A },
+);
+check(
+  'the summary narrows by the same tags as the list',
+  Number(tagSummary.entry_count) === 2,
+  JSON.stringify(tagSummary),
+);
+
+console.log('\n== A monthly rule returns to its day after a short month ==');
+// The bug this prevents is invisible for a month: a rule set on the 31st that lands on
+// the 28th and then *stays* on the 28th has silently changed what the user asked for.
+const DATES = [
+  ['2026-01-31', 'MONTHLY', 31, '2026-02-28'],
+  ['2026-02-28', 'MONTHLY', 31, '2026-03-31'],
+  ['2026-03-31', 'MONTHLY', 31, '2026-04-30'],
+  ['2024-01-31', 'MONTHLY', 31, '2024-02-29'],
+  ['2026-08-15', 'WEEKLY', null, '2026-08-22'],
+  ['2026-08-15', 'FORTNIGHTLY', null, '2026-08-29'],
+  ['2026-11-30', 'QUARTERLY', 30, '2027-02-28'],
+  ['2026-06-15', 'YEARLY', 15, '2027-06-15'],
+];
+for (const [from, frequency, day, expected] of DATES) {
+  const [row] = query(
+    `select public.next_due_after('${from}'::date, '${frequency}', ${day === null ? 'null' : `${day}::smallint`}) as next`,
+    { asUser: USER_A },
+  );
+  check(`${frequency} from ${from}`, row.next === expected, `got ${row.next}, wanted ${expected}`);
+}
+
+console.log('\n== Posting is atomic, idempotent and capped ==');
+run(join(scratch, 'rules.sql'));
+const firstPost = query(
+  `select count(*)::int as n from public.post_due_recurring('2026-04-15'::date)`,
+  { asUser: USER_A },
+);
+check('catches up the months it missed', firstPost[0].n === 3, `${firstPost[0].n}`);
+const secondPost = query(
+  `select count(*)::int as n from public.post_due_recurring('2026-04-15'::date)`,
+  { asUser: USER_A },
+);
+check('a second call the same day posts nothing', secondPost[0].n === 0, `${secondPost[0].n}`);
+
+const otherUserPost = query(
+  `select count(*)::int as n from public.post_due_recurring('2030-01-01'::date)`,
+  { asUser: USER_B },
+);
+check("another user cannot post someone else's rules", otherUserPost[0].n === 0, `${otherUserPost[0].n}`);
+
+run(join(scratch, 'dormant.sql'));
+const dormant = query(
+  `select count(*)::int as n from public.post_due_recurring('2026-04-15'::date)`,
+  { asUser: USER_A },
+);
+check('a rule dormant for years is capped, not unleashed', dormant[0].n === 24, `${dormant[0].n}`);
+
+console.log('\n== Monthly totals keep the quiet months ==');
+const months = query(
+  `select * from public.monthly_totals(null, 5, '2026-08-20'::date)`,
+  { asUser: USER_A },
+);
+check('one row per month, including empty ones', months.length === 5, `${months.length}`);
+const carried = months.every(
+  (row, index) => index === 0 || Number(row.closing_balance) !== null,
+);
+check('every month carries a closing balance', carried);
+// A month with no activity must repeat the previous balance, not drop to zero.
+const quiet = months.filter((row) => Number(row.money_in) === 0 && Number(row.money_out) === 0);
+check(
+  'a quiet month keeps the balance rather than reporting zero',
+  quiet.every((row, index) => index === 0 || Number(row.closing_balance) >= 0),
+  JSON.stringify(months.map((row) => [row.month, row.closing_balance])),
+);
+
 console.log('\n== anon is refused outright ==');
 for (const [sql, what] of [
   ['select * from public.person_balances', 'person_balances'],
   ['select * from public.transaction_ledger', 'transaction_ledger'],
   ['select * from public.transactions', 'transactions'],
+  ['select * from public.tag_counts', 'tag_counts'],
+  ['select * from public.recurring_transactions', 'recurring_transactions'],
+  ["select * from public.post_due_recurring('2026-01-01'::date)", 'post_due_recurring'],
+  ['select * from public.monthly_totals()', 'monthly_totals'],
 ]) {
   const file = join(scratch, 'anon.sql');
   writeFileSync(file, `set role anon; ${sql};`);

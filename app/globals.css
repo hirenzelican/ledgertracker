@@ -26,6 +26,13 @@
   --returned: 178 83 30;
   --returned-soft: 253 235 224;
   --returned-ink: 255 255 255;
+  /* Chart fills. In light mode these are the same greens and oranges the rest of the
+     app uses; in dark mode they are stepped down, because the text colours there sit
+     above the lightness band a chart fill has to stay inside to read as an area rather
+     than as a glow. Both pairs are checked for colour-blind separation - the margin is
+     narrow enough that the bars also carry position and direct labels. */
+  --chart-in: 17 122 88;
+  --chart-out: 178 83 30;
   --danger: 185 40 40;
 }
 
@@ -47,6 +54,8 @@
   --returned: 240 158 106;
   --returned-soft: 62 40 28;
   --returned-ink: 40 21 10;
+  --chart-in: 47 163 118;
+  --chart-out: 212 120 60;
   --danger: 248 113 113;
 }
 
@@ -198,4 +207,97 @@
   .splash-ring {
     display: none;
   }
+}
+
+/*
+ * Printing a statement.
+ *
+ * The PDF comes from the browser's own print engine rather than from a PDF writer
+ * bundled into the app. That is a deliberate trade: a hand-rolled writer would have to
+ * embed a font subset before it could draw a single ₹ - the standard PDF fonts have no
+ * rupee glyph - and would produce a worse document than the platform already makes, on
+ * a phone where "Print → Save as PDF" is one tap. What this stylesheet does is make sure
+ * what lands on the page is the statement and nothing else.
+ */
+@media print {
+  /* Ink on paper. The dark theme would otherwise print a black rectangle. */
+  :root,
+  :root[data-theme='dark'] {
+    --surface: 255 255 255;
+    --surface-raised: 255 255 255;
+    --surface-sunken: 255 255 255;
+    --ink: 0 0 0;
+    --ink-muted: 51 51 51;
+    --ink-faint: 90 90 90;
+    --border: 200 200 200;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  /* Navigation, sheets, toasts and anything that only exists to be tapped. */
+  nav,
+  .no-print,
+  [role='dialog'],
+  [role='status'],
+  button {
+    display: none !important;
+  }
+
+  /*
+   * Except the ones that are content. A history row is a button because tapping it opens
+   * the entry, but on paper it is a line of the statement - hiding it would print a
+   * statement with no transactions in it, which is worse than printing nothing.
+   */
+  li button {
+    display: flex !important;
+  }
+
+  /* Cards become ruled sections: a shadow costs toner and says nothing on paper. */
+  .card {
+    border: 1px solid #c8c8c8 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  /*
+   * Nothing is truncated on paper. On a phone an ellipsis is a promise that tapping will
+   * show the rest; on a printed statement it is just a missing note, and the page has
+   * room for it.
+   */
+  .truncate {
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+  }
+
+  /* A statement is a record, so every row must be readable and no row may be cut in
+     half by a page break. */
+  li,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  main {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  @page {
+    margin: 14mm;
+  }
+}
+
+/* Present only when printing; invisible the rest of the time. */
+.print-only {
+  display: none;
 }

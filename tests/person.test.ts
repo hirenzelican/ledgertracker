@@ -210,3 +210,149 @@ test('a statement built from a fetched page matches one built from the rows', ()
     fromRows.entries.map((entry) => entry.transaction.id),
   );
 });
+
+/* ------------------------------------------------------------------------ CSV import */
+
+import { cleanAmount, parseCsv, parseCsvImport, parseFlexibleDate } from '@/lib/validation/csv';
+import { normaliseTag, normaliseTags, parseTagInput } from '@/lib/validation/tags';
+
+test('the CSV reader honours quotes rather than splitting on every comma', () => {
+  // The failure this exists to prevent is silent: a naive split shifts every column
+  // after a comma in a note, and the row still imports - with the amount in the
+  // method column.
+  const rows = parseCsv('Date,Note\r\n2026-08-20,"a,b ""c"""\r\n2026-08-21,plain\r\n');
+  assert.deepEqual(rows, [
+    ['Date', 'Note'],
+    ['2026-08-20', 'a,b "c"'],
+    ['2026-08-21', 'plain'],
+  ]);
+});
+
+test('the CSV reader survives a BOM, bare LF and a trailing newline', () => {
+  const rows = parseCsv('﻿Date,Amount\n2026-08-20,100\n\n');
+  assert.deepEqual(rows, [
+    ['Date', 'Amount'],
+    ['2026-08-20', '100'],
+  ]);
+});
+
+test('dates are read in the formats a spreadsheet actually produces', () => {
+  assert.equal(parseFlexibleDate('2026-08-25'), '2026-08-25');
+  assert.equal(parseFlexibleDate('25/08/2026'), '2026-08-25');
+  assert.equal(parseFlexibleDate('25-08-2026'), '2026-08-25');
+  assert.equal(parseFlexibleDate('25.08.2026'), '2026-08-25');
+  assert.equal(parseFlexibleDate('2026/08/25'), '2026-08-25');
+  assert.equal(parseFlexibleDate('5/8/26'), '2026-08-05');
+  // Day-first for the ambiguous case: this app is written for India.
+  assert.equal(parseFlexibleDate('03/04/2026'), '2026-04-03');
+  assert.equal(parseFlexibleDate('not a date'), null);
+  assert.equal(parseFlexibleDate('31/02/2026'), null);
+});
+
+test('amounts shed the decoration a person or a spreadsheet adds', () => {
+  assert.equal(cleanAmount('₹1,00,000.50'), '100000.50');
+  assert.equal(cleanAmount('Rs. 2,500'), '2500');
+  assert.equal(cleanAmount('  1000  '), '1000');
+  assert.equal(cleanAmount('(500)'), '-500');
+});
+
+const CSV_HEADER = 'Date,Person,Relationship,Type,Amount,Method,Note,Tags';
+
+test('a CSV exported by this app imports back unchanged', () => {
+  const text = [
+    CSV_HEADER,
+    '2026-08-20,Mother,MOTHER,RECEIVED,10000.00,GOOGLE_PAY,,',
+    '2026-08-22,Ravi,BROTHER,LENT,4000.00,CASH,Emergency,rent; medical',
+  ].join('\r\n');
+
+  const result = parseCsvImport(text, []);
+  assert.ok(result.ok);
+  assert.equal(result.value.newTransactions.length, 2);
+  const [first, second] = result.value.newTransactions;
+  assert.equal(first?.personName, 'Mother');
+  assert.equal(first?.amountPaise, 1_000_000);
+  assert.equal(second?.type, 'LENT');
+  assert.deepEqual(second?.tags, ['rent', 'medical']);
+});
+
+test('a hand-made sheet imports: any column order, plain words, messy amounts', () => {
+  const text = [
+    'Who,When,Kind,Rupees,Mode,Remarks',
+    'Mother,25/08/2026,they gave me,"₹10,000",GPay,Monthly savings',
+    'Ravi,26/08/2026,i lent them,Rs. 4000,cash,',
+  ].join('\n');
+
+  const result = parseCsvImport(text, []);
+  assert.ok(result.ok, result.ok ? '' : result.message);
+  assert.equal(result.value.newTransactions.length, 2);
+  assert.equal(result.value.newTransactions[0]?.type, 'RECEIVED');
+  assert.equal(result.value.newTransactions[0]?.amountPaise, 1_000_000);
+  assert.equal(result.value.newTransactions[0]?.method, 'GOOGLE_PAY');
+  assert.equal(result.value.newTransactions[1]?.type, 'LENT');
+  assert.equal(result.value.newTransactions[1]?.method, 'CASH');
+});
+
+test('a missing method column is OTHER, not a guess', () => {
+  const result = parseCsvImport('Date,Person,Type,Amount\n2026-08-20,Mother,received,100', []);
+  assert.ok(result.ok);
+  assert.equal(result.value.newTransactions[0]?.method, 'OTHER');
+});
+
+test('CSV rows are refused where guessing would invent a number', () => {
+  const cases: [string, RegExp][] = [
+    ['Date,Person,Type,Amount\nyesterday,Mother,received,100', /is not a date/],
+    ['Date,Person,Type,Amount\n2026-08-20,Mother,gifted,100', /not a kind of entry/],
+    ['Date,Person,Type,Amount,Method\n2026-08-20,Mother,received,100,bitcoin', /not a payment method/],
+    ['Date,Person,Type,Amount\n2026-08-20,Mother,received,0', /above zero/],
+    ['Date,Person,Type,Amount\n2026-08-20,Mother,received,-50', /above zero/],
+    ['Date,Person,Type,Amount\n2026-08-20,,received,100', /needs a person/],
+    ['Person,Note\nMother,hello', /needs a column for/],
+  ];
+  for (const [text, pattern] of cases) {
+    const result = parseCsvImport(text, []);
+    assert.ok(!result.ok, `expected rejection for ${text.slice(0, 40)}`);
+    assert.match(result.message, pattern);
+  }
+});
+
+test('CSV and JSON agree on what counts as a duplicate', () => {
+  const existing = [
+    makeTransaction({ date: '2026-08-20', type: 'RECEIVED', amount: '10000.00', personId: 'person-1' }),
+  ];
+  const people = [makePerson('Mother', 'MOTHER', 'person-1')];
+  const text = `${CSV_HEADER}\n2026-08-20,Mother,MOTHER,RECEIVED,10000.00,GOOGLE_PAY,,`;
+
+  const result = parseCsvImport(text, existing, people);
+  assert.ok(result.ok);
+  assert.equal(result.value.newTransactions.length, 0);
+  assert.equal(result.value.duplicates.length, 1);
+});
+
+/* ------------------------------------------------------------------------------ tags */
+
+test('tags are lower-cased, trimmed and de-duplicated', () => {
+  assert.equal(normaliseTag('  Rent  '), 'rent');
+  assert.equal(normaliseTag('School   Fees'), 'school fees');
+  assert.deepEqual(normaliseTags(['Rent', 'rent', ' RENT ']), ['rent']);
+  assert.deepEqual(normaliseTags(['a', '', '   ']), ['a']);
+});
+
+test('a tag keeps its spaces but never its punctuation', () => {
+  // "school fees" is one label. Splitting on spaces would silently make it two useless
+  // ones, so only a comma or semicolon separates.
+  assert.deepEqual(parseTagInput('school fees'), ['school fees']);
+  assert.deepEqual(parseTagInput('rent, medical; school fees'), ['rent', 'medical', 'school fees']);
+  assert.equal(normaliseTag('rent!!! (2026)'), 'rent 2026');
+  assert.equal(normaliseTag('!!!'), '');
+});
+
+test('tags are capped in count and length', () => {
+  assert.equal(normaliseTags(Array.from({ length: 30 }, (_, i) => `tag${i}`)).length, 10);
+  assert.equal(normaliseTag('x'.repeat(100)).length, 24);
+});
+
+test('non-Latin tags survive normalisation', () => {
+  // Hindi and Gujarati labels must round-trip: the app is used in these languages.
+  assert.equal(normaliseTag(' किराया '), 'किराया');
+  assert.deepEqual(parseTagInput('किराया, દવા'), ['किराया', 'દવા']);
+});

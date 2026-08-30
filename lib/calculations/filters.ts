@@ -45,6 +45,9 @@ export function isFilterActive(filter: LedgerFilter): boolean {
     filter.personId !== null ||
     filter.search.trim() !== '' ||
     filter.from !== null ||
-    filter.to !== null
+    filter.to !== null ||
+    // Tags belong here too: without them a tag-only filter reads as "no filter", and the
+    // screen falls back to the unfiltered count while showing a filtered list.
+    filter.tags.length > 0
   );
 }
