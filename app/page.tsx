@@ -77,7 +77,6 @@ function Dashboard() {
   return (
     <AppShell
       title={t('app.name')}
-      showLogo
       action={
         <Link
           href="/settings/"

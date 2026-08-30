@@ -374,15 +374,15 @@ Four animation styles are implemented in `app/globals.css`; the active one is a 
 in `lib/brand/splash.ts`:
 
 ```ts
-export const ACTIVE_SPLASH_VARIANT: SplashVariant = 'pulse';
+export const ACTIVE_SPLASH_VARIANT: SplashVariant = 'shimmer';
 ```
 
 | Variant | What it does |
 | --- | --- |
-| `pulse` | The mark breathes, zooming gently in and out (default) |
+| `pulse` | The mark breathes, zooming gently in and out |
 | `rise` | It lifts into place with a settle, then breathes |
 | `ripple` | Rings spread outward, like a coin dropped in water |
-| `shimmer` | A light sweeps across the bag |
+| `shimmer` | A light sweeps across the bag (default) |
 
 ## Design notes
 

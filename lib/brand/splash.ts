@@ -21,7 +21,7 @@ export const SPLASH_VARIANT_NOTES: Record<SplashVariant, string> = {
 };
 
 /** The style in use. Change this one word to switch. */
-export const ACTIVE_SPLASH_VARIANT: SplashVariant = 'pulse';
+export const ACTIVE_SPLASH_VARIANT: SplashVariant = 'shimmer';
 
 /**
  * How long the splash stays even when everything is already loaded. Below roughly this,
