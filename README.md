@@ -129,8 +129,10 @@ them**. `.env.local` is gitignored; nothing secret belongs in this repository.
 
 Open the Supabase SQL editor and run the migrations in order -
 [`20260825000000_create_transactions.sql`](supabase/migrations/20260825000000_create_transactions.sql),
-[`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql), then
-[`20260826010000_two_way_tracking.sql`](supabase/migrations/20260826010000_two_way_tracking.sql) -
+[`20260826000000_add_people.sql`](supabase/migrations/20260826000000_add_people.sql),
+[`20260826010000_two_way_tracking.sql`](supabase/migrations/20260826010000_two_way_tracking.sql),
+[`20260830000000_contact_details.sql`](supabase/migrations/20260830000000_contact_details.sql), then
+[`20260830010000_server_side_paging.sql`](supabase/migrations/20260830010000_server_side_paging.sql) -
 or apply them with the CLI:
 
 ```bash
@@ -147,6 +149,9 @@ id           uuid primary key
 user_id      uuid not null references auth.users(id) on delete cascade
 name         text not null            -- unique per user
 relationship text not null            -- MOTHER | FATHER | BROTHER | SISTER | SPOUSE | FRIEND | OTHER
+phone        text                     -- optional, as typed; shape-checked only
+email        text                     -- optional
+note         text                     -- optional, up to 200 characters
 
 transactions
 ------------
@@ -211,6 +216,19 @@ backup import — including every scenario and edge case from the specification:
 ₹10,000 / ₹2,000 / ₹5,000 walkthrough, over-returning, editing and deleting the oldest
 and newest transactions, returning exactly the balance, decimal amounts, very large
 amounts and malformed backup files.
+
+### Checking the SQL against the TypeScript
+
+```bash
+npm run verify:sql
+```
+
+Runs every migration against a local Postgres, seeds two users, and asserts that
+`person_balances`, `transaction_ledger` and `ledger_summary` produce exactly what
+`calculatePersonBalances`, `buildRunningBalances` and `buildStatement` produce - and that
+row-level security still confines each user to their own rows *through the views*, with
+`anon` refused outright. It skips cleanly when no database is reachable; point it at one
+with `POTLI_TEST_PG`.
 
 ## Production build
 
@@ -411,8 +429,26 @@ Decisions that are load-bearing, in case a future change threatens one of them:
 - **Money is integer paise.** Rupee decimals exist only as strings at the database
   boundary and as formatted text in the UI. `parseFloat` is never used for arithmetic, so
   ₹1,250.50 stays exact no matter how many times it is added.
-- **Balances are always derived.** `buildRunningBalances` and `calculateTotals` recompute
-  from the transaction list on every render. Nothing writes a `balance_after` column.
+- **Balances are always derived.** Nothing writes a `balance_after` column. Since paging
+  moved server-side the derivation happens in SQL - `person_balances` sums each contact's
+  rows, `transaction_ledger` attaches a per-person running balance with a window function -
+  but it is still recomputed from the transactions on every read, so editing history cannot
+  leave a stale total anywhere.
+- **The ledger is read a page at a time.** Opening the app costs one query for the contact
+  list plus one page of history, whatever the history's size: at 1,000 contacts, going from
+  5,000 to 60,000 transactions moves the payload from 299 kB to 304 kB. The rule is that
+  nothing on a normal screen may fetch an unbounded number of rows. Exports, backups and
+  the duplicate check during a restore genuinely need everything, so they fetch it on
+  demand (`fetchAllTransactions`) rather than the app holding it all session.
+- **A page of rows is self-sufficient.** Each row carries its own running balance from the
+  view, so row 900 renders the same figure it would have if rows 1-899 had been fetched.
+  This is what makes paging safe rather than merely fast; without it a "show more" would
+  have to recompute from the beginning.
+- **Two implementations of one rule, checked against each other.** The TypeScript in
+  `lib/calculations` is still the readable statement of how a balance works, and is what
+  the SQL is held to. `npm run verify:sql` runs the migrations against a real Postgres,
+  seeds it, and compares every figure both ways - it is what caught the opening-balance
+  bug described below. If the two ever disagree, `lib/calculations` says which is right.
 - **Each person is a separate pot.** Balances, running balances, guards and statements are
   all scoped per person - a row showing what you hold for your mother never includes what
   your brother lent you; the dashboard total is only ever a sum of them. Deleting someone who still has
@@ -447,8 +483,10 @@ probably still pending. Check your inbox, or turn off *Confirm email* in Supabas
 **The magic link opens the login page again.** The deployed origin is not in
 **Authentication → URL Configuration**. Add it and request a new link.
 
-**"Could not load your transactions."** Usually the migration has not been run, or RLS is
-enabled without the policies. Re-run the migration; it is safe to run more than once.
+**"Could not load your transactions."** Usually a migration has not been run, or RLS is
+enabled without the policies. Re-run them; they are safe to run more than once. If the app
+loads but every screen is empty, check that the last migration ran - the app reads through
+the `person_balances` and `transaction_ledger` views, which it creates.
 
 **Everything saves but the list stays empty.** Rows exist with a different `user_id`
 (created before you signed in as this user). Check in the Supabase table editor.

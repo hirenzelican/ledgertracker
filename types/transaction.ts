@@ -37,13 +37,26 @@ export interface Person {
   user_id: string;
   name: string;
   relationship: Relationship;
+  /** As the user typed it. Null when never filled in - not every contact needs one. */
+  phone: string | null;
+  email: string | null;
+  /** Anything worth remembering: "pays back on salary day", a second number, an address. */
+  note: string | null;
   created_at: string;
   updated_at: string;
 }
 
+/**
+ * The editable fields of a contact. The optional details are empty strings rather than
+ * nulls here because that is what an untouched form field holds; the data layer turns
+ * an empty string into a NULL so the database never stores blank-but-present.
+ */
 export interface PersonInput {
   name: string;
   relationship: Relationship;
+  phone: string;
+  email: string;
+  note: string;
 }
 
 /** A person with their derived figures, for the dashboard list. */
@@ -100,6 +113,48 @@ export interface TransactionWithBalance {
   deltaPaise: number;
   /** Ledger balance after this transaction, in paise. */
   balanceAfterPaise: number;
+}
+
+/** Money in or money out: the four kinds collapse to two directions when filtering. */
+export type DirectionFilter = 'ALL' | 'IN' | 'OUT';
+
+/**
+ * What slice of the ledger a screen is asking for. Every field narrows the query the
+ * database runs - none of this is applied in the browser any more.
+ */
+export interface LedgerQuery {
+  /** One contact, or null for everyone. */
+  personId: string | null;
+  direction: DirectionFilter;
+  /** Case-insensitive substring match against the note. */
+  search: string;
+  /** Inclusive ISO date bounds; null means unbounded. */
+  from: string | null;
+  to: string | null;
+}
+
+export const EMPTY_QUERY: LedgerQuery = {
+  personId: null,
+  direction: 'ALL',
+  search: '',
+  from: null,
+  to: null,
+};
+
+/** One page of history, plus how many rows the whole query matches. */
+export interface LedgerPage {
+  entries: TransactionWithBalance[];
+  /** Total matching rows in the database, not the length of `entries`. */
+  total: number;
+}
+
+/** Totals for a filtered slice, computed in the database over rows never downloaded. */
+export interface LedgerSummary {
+  moneyInPaise: number;
+  moneyOutPaise: number;
+  count: number;
+  /** Balance carried in from before the range. Zero when the range is open-ended. */
+  openingBalancePaise: number;
 }
 
 export interface LedgerTotals {

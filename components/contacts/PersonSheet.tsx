@@ -4,6 +4,10 @@
  * The add / edit form for one contact. Used by the floating add button on the contacts
  * list and by the edit action on a contact's own screen, so both routes ask for exactly
  * the same things.
+ *
+ * Only the name is required. Everything else is offered because a ledger entry is half
+ * of what you need when money comes due - the other half is being able to reach the
+ * person - but demanding a phone number to record ₹500 would be the wrong trade.
  */
 
 import { useState } from 'react';
@@ -12,6 +16,14 @@ import { Sheet } from '@/components/ui/Sheet';
 import { TextField } from '@/components/ui/Field';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { cn } from '@/lib/cn';
+import {
+  MAX_EMAIL_LENGTH,
+  MAX_NAME_LENGTH,
+  MAX_PERSON_NOTE_LENGTH,
+  MAX_PHONE_LENGTH,
+  validatePersonForm,
+  type PersonField,
+} from '@/lib/validation/person';
 import { RELATIONSHIPS, type Person, type PersonInput } from '@/types/transaction';
 import type { Relationship } from '@/types/transaction';
 
@@ -26,20 +38,27 @@ export function PersonSheet({ person, onClose, onSave }: PersonSheetProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(person?.name ?? '');
   const [relationship, setRelationship] = useState<Relationship>(person?.relationship ?? 'MOTHER');
-  const [error, setError] = useState<string | null>(null);
+  const [phone, setPhone] = useState(person?.phone ?? '');
+  const [email, setEmail] = useState(person?.email ?? '');
+  const [note, setNote] = useState(person?.note ?? '');
+  const [errors, setErrors] = useState<Partial<Record<PersonField, string>>>({});
+  const [failure, setFailure] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    const trimmed = name.trim();
-    if (trimmed === '') {
-      setError(t('people.nameRequired'));
+    const validated = validatePersonForm({ name, relationship, phone, email, note }, t);
+    if (!validated.ok) {
+      setErrors(validated.errors);
+      setFailure(null);
       return;
     }
+
+    setErrors({});
     setSaving(true);
-    setError(null);
-    const result = await onSave({ name: trimmed, relationship });
+    setFailure(null);
+    const result = await onSave(validated.value);
     setSaving(false);
-    if (!result.ok) setError(result.message ?? t('people.saveFailed'));
+    if (!result.ok) setFailure(result.message ?? t('people.saveFailed'));
   };
 
   return (
@@ -55,9 +74,10 @@ export function PersonSheet({ person, onClose, onSave }: PersonSheetProps) {
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder={t('people.namePlaceholder')}
-          maxLength={60}
+          maxLength={MAX_NAME_LENGTH}
           autoComplete="off"
           autoFocus={!person}
+          error={errors.name}
         />
 
         <fieldset>
@@ -82,12 +102,50 @@ export function PersonSheet({ person, onClose, onSave }: PersonSheetProps) {
           </div>
         </fieldset>
 
-        {error ? (
+        <TextField
+          label={t('people.phone')}
+          value={phone}
+          onChange={(event) => setPhone(event.target.value)}
+          placeholder={t('people.phonePlaceholder')}
+          maxLength={MAX_PHONE_LENGTH}
+          type="tel"
+          inputMode="tel"
+          autoComplete="tel"
+          error={errors.phone}
+          hint={t('people.optional')}
+        />
+
+        <TextField
+          label={t('people.email')}
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder={t('people.emailPlaceholder')}
+          maxLength={MAX_EMAIL_LENGTH}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          autoCapitalize="off"
+          error={errors.email}
+          hint={t('people.optional')}
+        />
+
+        <TextField
+          label={t('people.note')}
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder={t('people.notePlaceholder')}
+          maxLength={MAX_PERSON_NOTE_LENGTH}
+          autoComplete="off"
+          error={errors.note}
+          hint={t('people.optional')}
+        />
+
+        {failure ? (
           <p
             role="alert"
             className="rounded-xl bg-returned-soft px-4 py-3 text-sm font-medium text-ink"
           >
-            {error}
+            {failure}
           </p>
         ) : null}
 

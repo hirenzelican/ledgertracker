@@ -75,7 +75,15 @@ export function PersonPicker({ value, onChange, error, disabled }: PersonPickerP
     }
     setSaving(true);
     setAddError(null);
-    const result = await addPerson({ name: trimmed, relationship });
+    // The picker asks for the minimum: a name is enough to record money against
+    // someone, and the rest can be filled in on their contact screen later.
+    const result = await addPerson({
+      name: trimmed,
+      relationship,
+      phone: '',
+      email: '',
+      note: '',
+    });
     setSaving(false);
 
     if (!result.ok) {

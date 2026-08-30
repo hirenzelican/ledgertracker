@@ -27,14 +27,16 @@ import { ShareButton } from '@/components/share/ShareButton';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionActions } from '@/components/transactions/TransactionActions';
 import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
+import { ContactDetails } from '@/components/contacts/ContactDetails';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useLedgerPage, DEFAULT_PAGE_SIZE } from '@/components/providers/useLedgerPage';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { describePersonBalance } from '@/lib/calculations/balance';
 import { buildContactShareText } from '@/lib/export/share';
 import { todayIso } from '@/lib/format/date';
 import { formatRupees } from '@/lib/calculations/money';
-import type { Person, TransactionType, TransactionWithBalance } from '@/types/transaction';
+import type { Person, PersonInput, TransactionType, TransactionWithBalance } from '@/types/transaction';
 
 /** Rows rendered before "show more"; a phone shows about eight at a time. */
 const PAGE_SIZE = 25;
@@ -48,7 +50,7 @@ export default function ContactsPage() {
 }
 
 function Contacts() {
-  const { personBalances, ledger, status, addPerson, editPerson, removePerson } = useLedger();
+  const { personBalances, status, addPerson, editPerson, removePerson } = useLedger();
   const { t } = useTranslation();
   const { showToast } = useToast();
 
@@ -72,11 +74,22 @@ function Contacts() {
 
   const selected = personBalances.find((entry) => entry.person.id === selectedId) ?? null;
 
-  const theirEntries = useMemo(
-    () =>
-      selected ? ledger.filter((entry) => entry.transaction.person_id === selected.person.id) : [],
-    [ledger, selected],
+  // Their history is fetched for them, a page at a time. It used to be filtered out of
+  // the whole ledger, which meant every contact screen paid for every other contact.
+  const theirQuery = useMemo(
+    () => ({
+      personId: selectedId,
+      direction: 'ALL' as const,
+      search: '',
+      from: null,
+      to: null,
+    }),
+    [selectedId],
   );
+  const history = useLedgerPage(theirQuery, {
+    pageSize: DEFAULT_PAGE_SIZE,
+    enabled: selectedId !== null,
+  });
 
   const matches = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -96,7 +109,7 @@ function Contacts() {
     setSelectedId(null);
   };
 
-  const savePerson = async (input: { name: string; relationship: Person['relationship'] }) => {
+  const savePerson = async (input: PersonInput) => {
     const result =
       editing === 'new' || editing === null
         ? await addPerson(input)
@@ -231,13 +244,15 @@ function Contacts() {
                   balancePaise,
                   moneyInPaise,
                   moneyOutPaise,
-                  theirEntries,
+                  history.entries,
                   todayIso(),
                   t,
                 )
               }
             />
           </section>
+
+          <ContactDetails person={person} />
 
           <section>
             <SectionHeading>{t('contacts.record')}</SectionHeading>
@@ -253,14 +268,34 @@ function Contacts() {
               {t('contacts.history')}
               {count > 0 ? ` · ${count}` : ''}
             </SectionHeading>
-            {theirEntries.length === 0 ? (
+            {history.status === 'loading' ? (
+              <Card>
+                <LoadingPanel label={t('history.loading')} />
+              </Card>
+            ) : history.entries.length === 0 ? (
               <Card className="px-6 py-8 text-center">
                 <p className="text-[15px] text-ink-muted">{t('contacts.noHistory')}</p>
               </Card>
             ) : (
-              <div className="card overflow-hidden p-0">
-                <TransactionList entries={theirEntries} onSelect={setOpenEntry} hidePerson />
-              </div>
+              <>
+                <div className="card overflow-hidden p-0">
+                  <TransactionList entries={history.entries} onSelect={setOpenEntry} hidePerson />
+                </div>
+                {history.hasMore ? (
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="mt-3 w-full"
+                    onClick={history.loadMore}
+                    loading={history.loadingMore}
+                    loadingLabel={t('history.loading')}
+                  >
+                    {t('history.showMore', {
+                      count: Math.min(DEFAULT_PAGE_SIZE, history.total - history.entries.length),
+                    })}
+                  </Button>
+                ) : null}
+              </>
             )}
           </section>
 

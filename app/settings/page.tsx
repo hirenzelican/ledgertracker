@@ -9,7 +9,8 @@ import { Card, SectionHeading } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
 import { useAuth } from '@/components/providers/AuthProvider';
-import { useLedger } from '@/components/providers/LedgerProvider';
+import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
+import type { Transaction } from '@/types/transaction';
 import { useTheme, type ThemePreference } from '@/components/providers/ThemeProvider';
 import {
   LOCALES,
@@ -44,43 +45,61 @@ export default function SettingsPage() {
 
 function Settings() {
   const { user, signOut } = useAuth();
-  const { transactions, totals, people } = useLedger();
+  const { totals, people } = useLedger();
   const { preference, setPreference } = useTheme();
   const { showToast } = useToast();
   const { t, locale, setLocale } = useTranslation();
   const [confirmSignOut, setConfirmSignOut] = useState(false);
 
-  const exportCsv = () => {
-    if (transactions.length === 0) {
+  /**
+   * An export is the one place the whole ledger is genuinely the point, so it is fetched
+   * here rather than kept in memory for the rest of the app's life. `exporting` gates
+   * both buttons: two concurrent full fetches would be pure waste.
+   */
+  const [exporting, setExporting] = useState<'csv' | 'json' | null>(null);
+
+  const withAllTransactions = async (
+    kind: 'csv' | 'json',
+    write: (rows: Transaction[]) => void,
+  ) => {
+    if (exporting !== null) return;
+    if (totals.count === 0) {
       showToast({ tone: 'info', title: t('settings.nothingToExport') });
       return;
     }
-    const today = todayIso();
-    downloadTextFile(
-      timestampedFilename('potli-transactions', 'csv', today),
-      transactionsToCsv(transactions, people),
-      'text/csv',
-    );
-    showToast({ tone: 'success', title: t('settings.csvDownloaded') });
+    setExporting(kind);
+    try {
+      write(await fetchAllTransactions());
+    } catch {
+      showToast({ tone: 'error', title: t('settings.exportFailed') });
+    } finally {
+      setExporting(null);
+    }
   };
 
-  const exportJson = () => {
-    if (transactions.length === 0) {
-      showToast({ tone: 'info', title: t('settings.nothingToExport') });
-      return;
-    }
-    const today = todayIso();
-    downloadTextFile(
-      timestampedFilename('potli-backup', 'json', today),
-      serializeBackup(buildBackup(transactions, people, new Date().toISOString())),
-      'application/json',
-    );
-    showToast({
-      tone: 'success',
-      title: t('settings.backupDownloaded'),
-      description: t('settings.backupCount', { count: transactions.length }),
+  const exportCsv = () =>
+    withAllTransactions('csv', (rows) => {
+      downloadTextFile(
+        timestampedFilename('potli-transactions', 'csv', todayIso()),
+        transactionsToCsv(rows, people),
+        'text/csv',
+      );
+      showToast({ tone: 'success', title: t('settings.csvDownloaded') });
     });
-  };
+
+  const exportJson = () =>
+    withAllTransactions('json', (rows) => {
+      downloadTextFile(
+        timestampedFilename('potli-backup', 'json', todayIso()),
+        serializeBackup(buildBackup(rows, people, new Date().toISOString())),
+        'application/json',
+      );
+      showToast({
+        tone: 'success',
+        title: t('settings.backupDownloaded'),
+        description: t('settings.backupCount', { count: rows.length }),
+      });
+    });
 
   return (
     <AppShell title={t('settings.title')}>

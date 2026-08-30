@@ -1,31 +1,24 @@
 /**
- * Filtering runs over entries that already carry their running balance, so narrowing the
- * view never changes the balance shown against a transaction.
+ * What a filtered view of the ledger means.
+ *
+ * The filtering itself now happens in the database - `fetchLedgerPage` turns a
+ * `LedgerQuery` into a query, so narrowing a view never means downloading everything
+ * first. `filterLedger` below is the same rule written out in TypeScript: it is what the
+ * tests hold the SQL to, and the answer to appeal to if the two ever disagree.
  */
 
-import { TYPE_DIRECTION, type TransactionWithBalance } from '@/types/transaction';
+import {
+  EMPTY_QUERY,
+  TYPE_DIRECTION,
+  type DirectionFilter,
+  type LedgerQuery,
+  type TransactionWithBalance,
+} from '@/types/transaction';
 
-/** Money in or money out: the four kinds collapse to two directions when filtering. */
-export type TypeFilter = 'ALL' | 'IN' | 'OUT';
-
-export interface LedgerFilter {
-  type: TypeFilter;
-  /** Restricts to one person; null means everyone. */
-  personId: string | null;
-  /** Case-insensitive substring match against the note. */
-  search: string;
-  /** Inclusive ISO date bounds; null means unbounded. */
-  from: string | null;
-  to: string | null;
-}
-
-export const EMPTY_FILTER: LedgerFilter = {
-  type: 'ALL',
-  personId: null,
-  search: '',
-  from: null,
-  to: null,
-};
+export type { DirectionFilter, LedgerQuery };
+/** Kept as the name the UI has always used for the shape it passes around. */
+export type LedgerFilter = LedgerQuery;
+export const EMPTY_FILTER: LedgerFilter = EMPTY_QUERY;
 
 export function filterLedger(
   entries: readonly TransactionWithBalance[],
@@ -34,9 +27,9 @@ export function filterLedger(
   const needle = filter.search.trim().toLowerCase();
 
   return entries.filter(({ transaction }) => {
-    if (filter.type !== 'ALL') {
+    if (filter.direction !== 'ALL') {
       const direction = TYPE_DIRECTION[transaction.type] === 1 ? 'IN' : 'OUT';
-      if (direction !== filter.type) return false;
+      if (direction !== filter.direction) return false;
     }
     if (filter.personId !== null && transaction.person_id !== filter.personId) return false;
     if (filter.from !== null && transaction.transaction_date < filter.from) return false;
@@ -48,7 +41,7 @@ export function filterLedger(
 
 export function isFilterActive(filter: LedgerFilter): boolean {
   return (
-    filter.type !== 'ALL' ||
+    filter.direction !== 'ALL' ||
     filter.personId !== null ||
     filter.search.trim() !== '' ||
     filter.from !== null ||

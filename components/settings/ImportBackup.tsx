@@ -11,7 +11,7 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Sheet } from '@/components/ui/Sheet';
-import { useLedger } from '@/components/providers/LedgerProvider';
+import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
 import { parseBackup, type ParsedBackup } from '@/lib/validation/backup';
 import { formatDisplayDate } from '@/lib/format/date';
@@ -20,7 +20,7 @@ import { useTranslation } from '@/components/providers/LanguageProvider';
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export function ImportBackup() {
-  const { transactions, importTransactions, people } = useLedger();
+  const { importTransactions, people } = useLedger();
   const { showToast } = useToast();
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -44,7 +44,17 @@ export function ImportBackup() {
       return;
     }
 
-    const result = parseBackup(text, transactions, people);
+    // Spotting which rows are already there means comparing against all of them, so the
+    // ledger is fetched for this one moment rather than held for the whole session.
+    let existing;
+    try {
+      existing = await fetchAllTransactions();
+    } catch {
+      showToast({ tone: 'error', title: t('error.load') });
+      return;
+    }
+
+    const result = parseBackup(text, existing, people);
     if (!result.ok) {
       showToast({ tone: 'error', title: t('import.invalid'), description: result.message });
       return;

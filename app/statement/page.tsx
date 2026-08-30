@@ -1,13 +1,24 @@
 'use client';
 
+/**
+ * A statement for a date range, for everyone or for one person.
+ *
+ * The period's entries are fetched for the period - and the opening balance comes from
+ * `ledger_summary`, which totals every row before the start date without sending any of
+ * them. That matters beyond speed: the old version derived the opening balance from
+ * whatever happened to be in memory, which quietly gave the wrong figure for "everyone"
+ * once there was more than one contact.
+ */
+
 import { useMemo, useState } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { LoadingPanel } from '@/components/ui/Spinner';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useLedgerPage } from '@/components/providers/useLedgerPage';
 import { useTranslation } from '@/components/providers/LanguageProvider';
-import { buildStatement, forPerson } from '@/lib/calculations/balance';
+import { statementFromEntries } from '@/lib/calculations/balance';
 import { buildStatementShareText } from '@/lib/export/share';
 import { ShareButton } from '@/components/share/ShareButton';
 import { cn } from '@/lib/cn';
@@ -23,7 +34,7 @@ export default function StatementPage() {
 }
 
 function Statement() {
-  const { transactions, status, people } = useLedger();
+  const { status: ledgerStatus, people } = useLedger();
   const { t } = useTranslation();
   const [personId, setPersonId] = useState<string | null>(null);
   const today = todayIso();
@@ -34,15 +45,36 @@ function Statement() {
 
   // A statement mixing several people would add up money that belongs to different
   // pots, so the scope is always explicit: everyone, or one person.
-  const scoped = useMemo(
-    () => (personId === null ? transactions : forPerson(transactions, personId)),
-    [transactions, personId],
+  const query = useMemo(
+    () => ({
+      personId,
+      direction: 'ALL' as const,
+      search: '',
+      from: startDate,
+      to: endDate,
+    }),
+    [personId, startDate, endDate],
   );
 
+  // A statement is a bounded period, so its entries are fetched whole rather than paged:
+  // a month of history is a page, and a reader scrolling a statement expects it to end.
+  const period = useLedgerPage(query, { pageSize: 500, enabled: !invalidRange });
+
   const statement = useMemo(
-    () => (invalidRange ? null : buildStatement(scoped, startDate, endDate)),
-    [scoped, startDate, endDate, invalidRange],
+    () =>
+      invalidRange
+        ? null
+        : statementFromEntries(
+            // fetchLedgerPage returns newest first; a statement reads oldest first.
+            [...period.entries].reverse(),
+            period.summary.openingBalancePaise,
+            startDate,
+            endDate,
+          ),
+    [invalidRange, period.entries, period.summary.openingBalancePaise, startDate, endDate],
   );
+
+  const status = ledgerStatus === 'error' ? 'error' : period.status;
 
   const personName = people.find((person) => person.id === personId)?.name ?? null;
 
@@ -110,7 +142,7 @@ function Statement() {
           </div>
         ) : null}
 
-        {statement ? (
+        {statement && status === 'ready' ? (
           <>
             <section className="card p-5" aria-label={t('statement.title')}>
               <h2 className="text-base font-semibold text-ink">

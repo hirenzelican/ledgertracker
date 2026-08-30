@@ -2,8 +2,14 @@
  * Balance derivation.
  *
  * The `transactions` rows are the single source of truth. Nothing here reads a stored
- * balance; every figure the UI shows is recomputed from the transaction list, so
- * editing or deleting history can never leave a stale total behind.
+ * balance; every figure the UI shows is recomputed from the transactions, so editing or
+ * deleting history can never leave a stale total behind.
+ *
+ * Since paging moved to the server, most of these run in SQL as well - `person_balances`
+ * mirrors `calculatePersonBalances`, and `transaction_ledger`'s window function mirrors
+ * `buildRunningBalances`. The versions here stay as the readable statement of the rule
+ * and as what the tests check the SQL against; if the two ever disagree, one of them is
+ * a bug and this file says which answer is right.
  */
 
 import { TYPE_DIRECTION } from '@/types/transaction';
@@ -197,6 +203,44 @@ export function projectedBalancePaise(
   return balancePaise;
 }
 
+/**
+ * The balance after applying a change to a known starting balance.
+ *
+ * This is `projectedBalancePaise` for a caller that has the balance but not the rows -
+ * which, now that the ledger is paged, is every caller in the app. `exclude` takes a
+ * transaction back out (an edit or a delete), `include` applies a proposed one.
+ */
+export function applyChangePaise(
+  basePaise: number,
+  change: {
+    exclude?: { type: TransactionType; amountPaise: number };
+    include?: { type: TransactionType; amountPaise: number };
+  },
+): number {
+  let balancePaise = basePaise;
+  if (change.exclude) {
+    balancePaise -= signedDeltaPaise(change.exclude.type, change.exclude.amountPaise);
+  }
+  if (change.include) {
+    balancePaise += signedDeltaPaise(change.include.type, change.include.amountPaise);
+  }
+  return balancePaise;
+}
+
+/** Money in and money out across a set of entries that already carry their deltas. */
+export function summariseEntries(entries: readonly TransactionWithBalance[]): {
+  moneyInPaise: number;
+  moneyOutPaise: number;
+} {
+  let moneyInPaise = 0;
+  let moneyOutPaise = 0;
+  for (const entry of entries) {
+    if (entry.deltaPaise > 0) moneyInPaise += entry.deltaPaise;
+    else moneyOutPaise += -entry.deltaPaise;
+  }
+  return { moneyInPaise, moneyOutPaise };
+}
+
 export interface StatementSummary {
   startDate: string;
   endDate: string;
@@ -208,9 +252,39 @@ export interface StatementSummary {
 }
 
 /**
- * Statement for a closed date range. Opening balance is the running balance
- * immediately before `startDate`; every entry keeps its ledger-wide running balance
- * so the numbers agree with the history screen.
+ * Statement for entries already fetched for the period, with the opening balance the
+ * database computed over the rows before it.
+ *
+ * The entries must be exactly the period's, oldest first. Nothing is filtered here: the
+ * query that fetched them already did that, and re-filtering would mean the screen and
+ * the database could disagree about what is in the statement.
+ */
+export function statementFromEntries(
+  entries: readonly TransactionWithBalance[],
+  openingBalancePaise: number,
+  startDate: string,
+  endDate: string,
+): StatementSummary {
+  const { moneyInPaise, moneyOutPaise } = summariseEntries(entries);
+  return {
+    startDate,
+    endDate,
+    openingBalancePaise,
+    receivedPaise: moneyInPaise,
+    returnedPaise: moneyOutPaise,
+    closingBalancePaise: openingBalancePaise + moneyInPaise - moneyOutPaise,
+    entries: [...entries],
+  };
+}
+
+/**
+ * Statement for a closed date range, derived from raw transactions. Opening balance is
+ * the running balance immediately before `startDate`; every entry keeps its running
+ * balance so the numbers agree with the history screen.
+ *
+ * The app itself uses `statementFromEntries` - it no longer holds every transaction. This
+ * stays as the definition of what a statement is, and as the reference the tests hold
+ * `ledger_summary` and the paged fetch to.
  */
 export function buildStatement(
   transactions: readonly Transaction[],
@@ -226,7 +300,11 @@ export function buildStatement(
   for (const entry of ledger) {
     const date = entry.transaction.transaction_date;
     if (date < startDate) {
-      openingBalancePaise = entry.balanceAfterPaise;
+      // Summed, not assigned. `balanceAfterPaise` is one person's running balance, so
+      // taking the last one gave whichever contact happened to appear last in the sort
+      // rather than the total across everyone - right for a single-person statement,
+      // silently wrong for "everyone" the moment a second contact existed.
+      openingBalancePaise += entry.deltaPaise;
       continue;
     }
     if (date > endDate) continue;

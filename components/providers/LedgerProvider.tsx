@@ -1,12 +1,18 @@
 'use client';
 
 /**
- * Holds the ledger in memory and exposes every mutation the UI needs.
+ * Holds the contacts and their balances, and exposes every mutation the UI needs.
  *
- * The transaction list is the only state kept here. Balances, totals and running
- * balances are derived on read, so a change to one transaction cannot leave a stale
- * figure anywhere in the app. Writes are confirmed by Supabase before local state
- * changes: the UI never claims a transaction was saved when it was not.
+ * What this deliberately does *not* hold is the transactions. The ledger is paged out of
+ * the database a screen at a time (see `useLedgerPage`), so opening the app costs one
+ * query for the contact list however long the history is. The figures that used to need
+ * every row - balances, totals, running balances - are computed by the `person_balances`
+ * and `transaction_ledger` views instead.
+ *
+ * Nothing stores a balance, here or there. Every figure is derived at read time, so
+ * editing or deleting history cannot leave a stale total anywhere. Writes are confirmed
+ * by Supabase before local state changes: the UI never claims a transaction was saved
+ * when it was not.
  */
 
 import {
@@ -19,24 +25,16 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import {
-  buildRunningBalances,
-  calculatePersonBalances,
-  calculateTotals,
-  summariseStanding,
-  forPerson,
-  projectedBalancePaise,
-  sortChronological,
-} from '@/lib/calculations/balance';
+import { applyChangePaise, summariseStanding } from '@/lib/calculations/balance';
 import {
   deletePerson as deletePersonRow,
-  fetchPeople,
+  fetchPersonBalances,
   insertPerson,
   updatePerson as updatePersonRow,
 } from '@/lib/supabase/people';
 import {
   deleteTransaction as deleteTransactionRow,
-  fetchTransactions,
+  fetchAllTransactions,
   insertTransaction,
   insertTransactionsBatch,
   deleteAllTransactions,
@@ -44,7 +42,7 @@ import {
 } from '@/lib/supabase/transactions';
 import { toMessageKey } from '@/lib/supabase/errors';
 import { useTranslation } from './LanguageProvider';
-import { formatRupees } from '@/lib/calculations/money';
+import { amountToPaise, formatRupees } from '@/lib/calculations/money';
 
 import type { BackupRowInput } from '@/lib/validation/backup';
 
@@ -58,15 +56,15 @@ import type {
   PersonInput,
   Transaction,
   TransactionInput,
-  TransactionWithBalance,
+  TransactionType,
 } from '@/types/transaction';
 
 export type MutationResult =
   | { ok: true; transaction: Transaction }
   /**
-   * `overridable` marks a warning rather than a refusal: the ledger ends up positive,
-   * but dips below zero part-way through its history. That is normal while back-filling
-   * old transactions out of order, so the user is allowed to insist.
+   * `overridable` marks a warning rather than a refusal: the change is legal, but its
+   * consequence is surprising often enough to be worth a second look. The user is
+   * allowed to insist.
    */
   | { ok: false; message: string; overridable?: boolean };
 
@@ -77,25 +75,36 @@ export interface MutationOptions {
   allowUnusual?: boolean;
 }
 
+/** A transaction reduced to its effect on a balance. */
+export interface BalanceChange {
+  type: TransactionType;
+  amountPaise: number;
+}
+
 interface LedgerContextValue {
-  transactions: Transaction[];
   people: Person[];
   /** Per-person figures, most money held first. */
   personBalances: PersonBalance[];
   /** How much is held for others, and how much others owe. */
   standing: Standing;
+  totals: LedgerTotals;
   addPerson: (input: PersonInput) => Promise<PersonResult>;
   editPerson: (id: string, input: PersonInput) => Promise<PersonResult>;
   removePerson: (id: string) => Promise<{ ok: true } | { ok: false; message: string }>;
-  /** Newest first, each decorated with the balance after it. */
-  ledger: TransactionWithBalance[];
-  totals: LedgerTotals;
   status: 'loading' | 'ready' | 'error';
   loadError: string | null;
   refresh: () => Promise<void>;
+  /**
+   * Bumped whenever the ledger changes. Paged views watch it to know their page is
+   * stale - it is the one thing that has to be shared, now that no screen holds the
+   * whole list.
+   */
+  version: number;
   addTransaction: (input: TransactionInput, options?: MutationOptions) => Promise<MutationResult>;
   editTransaction: (
-    id: string,
+    /** The row being replaced. Needed in full: its old effect has to come back out of
+     * the balance before the new one goes in. */
+    previous: Transaction,
     input: TransactionInput,
     options?: MutationOptions,
   ) => Promise<MutationResult>;
@@ -111,12 +120,10 @@ interface LedgerContextValue {
    */
   balanceIfApplied: (
     personId: string,
-    change: {
-      excludeId?: string;
-      include?: { type: TransactionInput['type']; amountPaise: number };
-    },
+    change: { exclude?: BalanceChange; include?: BalanceChange },
   ) => number;
-  findTransaction: (id: string) => Transaction | undefined;
+  /** That person's balance right now, in paise. Zero for someone unknown. */
+  balanceFor: (personId: string) => number;
 }
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
@@ -128,33 +135,28 @@ function nameOf(people: readonly Person[], personId: string): string {
 
 /**
  * Warns about a change with a surprising consequence, and explains it in the terms the
- * user thinks in. Nothing is refused any more: now that lending is tracked, a negative
- * balance is a real state rather than an impossible one, so every combination is
- * legitimate. What is left is catching the mistyped amount - returning ₹5,000 when only
- * ₹500 is held is far more often a slip than a spontaneous loan.
+ * user thinks in. Nothing is refused: now that lending is tracked, a negative balance is
+ * a real state rather than an impossible one, so every combination is legitimate. What
+ * is left is catching the mistyped amount - returning ₹5,000 when only ₹500 is held is
+ * far more often a slip than a spontaneous loan.
  */
 function warnAboutConsequence(
-  transactions: readonly Transaction[],
+  beforePaise: number,
   input: TransactionInput,
-  excludeId: string | undefined,
   personName: string,
   t: Translate,
 ): { message: string; overridable: boolean } | null {
-  const remaining = forPerson(transactions, input.person_id).filter(
-    (transaction) => transaction.id !== excludeId,
-  );
-  const before = projectedBalancePaise(remaining, {});
-  const after = projectedBalancePaise(remaining, {
+  const after = applyChangePaise(beforePaise, {
     include: { type: input.type, amountPaise: input.amountPaise },
   });
 
   // Paying out more of someone's money than is being held turns the excess into a loan.
   if (input.type === 'RETURNED' && after < 0) {
-    const held = Math.max(before, 0);
+    const held = Math.max(beforePaise, 0);
     return {
       overridable: true,
       message:
-        before <= 0
+        beforePaise <= 0
           ? t('warn.returnWithNothing', { name: personName, excess: formatRupees(-after) })
           : t('warn.overReturn', {
               name: personName,
@@ -165,12 +167,12 @@ function warnAboutConsequence(
   }
 
   // Being paid back more than was lent means the surplus is now money being held.
-  if (input.type === 'REPAID' && after > 0 && before < 0) {
+  if (input.type === 'REPAID' && after > 0 && beforePaise < 0) {
     return {
       overridable: true,
       message: t('warn.overRepaid', {
         name: personName,
-        owed: formatRupees(-before),
+        owed: formatRupees(-beforePaise),
         excess: formatRupees(after),
       }),
     };
@@ -182,10 +184,10 @@ function warnAboutConsequence(
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
   const { t } = useTranslation();
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [people, setPeople] = useState<Person[]>([]);
+  const [personBalances, setPersonBalances] = useState<PersonBalance[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [version, setVersion] = useState(0);
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
@@ -193,10 +195,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     setStatus('loading');
     setLoadError(null);
     try {
-      const [rows, peopleRows] = await Promise.all([fetchTransactions(), fetchPeople()]);
+      const balances = await fetchPersonBalances();
       if (currentRequest !== requestId.current) return;
-      setTransactions(sortChronological(rows));
-      setPeople(peopleRows);
+      setPersonBalances(balances);
       setStatus('ready');
     } catch (error) {
       if (currentRequest !== requestId.current) return;
@@ -205,42 +206,96 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     }
   }, [t]);
 
+  /** Re-reads the balances and tells every paged view its page is out of date. */
+  const invalidate = useCallback(async () => {
+    setVersion((current) => current + 1);
+    try {
+      const balances = await fetchPersonBalances();
+      setPersonBalances(balances);
+    } catch {
+      // A failed refresh leaves the previous figures on screen, which is better than
+      // blanking them. The next mutation or a pull-to-refresh will try again.
+    }
+  }, []);
+
   useEffect(() => {
     if (authStatus === 'signed-in') {
       void load();
     } else if (authStatus === 'signed-out' || authStatus === 'unconfigured') {
       requestId.current++;
-      setTransactions([]);
-      setPeople([]);
+      setPersonBalances([]);
       setStatus(authStatus === 'signed-out' ? 'ready' : 'error');
       setLoadError(authStatus === 'unconfigured' ? t('error.notConfigured') : null);
     }
   }, [authStatus, load, t]);
 
-  const balanceIfApplied = useCallback(
-    (
-      personId: string,
-      change: {
-        excludeId?: string;
-        include?: { type: TransactionInput['type']; amountPaise: number };
-      },
-    ) => projectedBalancePaise(forPerson(transactions, personId), change),
-    [transactions],
+  const people = useMemo(
+    () =>
+      personBalances
+        .map((entry) => entry.person)
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [personBalances],
   );
 
-  const personBalances = useMemo(
-    () => calculatePersonBalances(people, transactions),
-    [people, transactions],
+  const balanceFor = useCallback(
+    (personId: string) =>
+      personBalances.find((entry) => entry.person.id === personId)?.balancePaise ?? 0,
+    [personBalances],
+  );
+
+  const balanceIfApplied = useCallback(
+    (personId: string, change: { exclude?: BalanceChange; include?: BalanceChange }) =>
+      applyChangePaise(balanceFor(personId), change),
+    [balanceFor],
   );
 
   const standing = useMemo(() => summariseStanding(personBalances), [personBalances]);
+
+  /**
+   * Ledger-wide totals, added up from the per-person figures rather than from the rows.
+   * Only `lastTransactionDate` needs a comparison: the rest are sums of sums.
+   */
+  const totals = useMemo((): LedgerTotals => {
+    let moneyInPaise = 0;
+    let moneyOutPaise = 0;
+    let count = 0;
+    let lastTransactionDate: string | null = null;
+    for (const entry of personBalances) {
+      moneyInPaise += entry.moneyInPaise;
+      moneyOutPaise += entry.moneyOutPaise;
+      count += entry.count;
+      if (
+        entry.lastTransactionDate !== null &&
+        (lastTransactionDate === null || entry.lastTransactionDate > lastTransactionDate)
+      ) {
+        lastTransactionDate = entry.lastTransactionDate;
+      }
+    }
+    return {
+      balancePaise: moneyInPaise - moneyOutPaise,
+      moneyInPaise,
+      moneyOutPaise,
+      count,
+      lastTransactionDate,
+    };
+  }, [personBalances]);
 
   const addPerson = useCallback(
     async (input: PersonInput): Promise<PersonResult> => {
       if (!user) return { ok: false, message: t('error.signInAgain') };
       try {
         const saved = await insertPerson(input, user.id);
-        setPeople((current) => [...current, saved].sort((a, b) => a.name.localeCompare(b.name)));
+        setPersonBalances((current) => [
+          ...current,
+          {
+            person: saved,
+            balancePaise: 0,
+            moneyInPaise: 0,
+            moneyOutPaise: 0,
+            count: 0,
+            lastTransactionDate: null,
+          },
+        ]);
         return { ok: true, person: saved };
       } catch (error) {
         const message =
@@ -257,10 +312,8 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     async (id: string, input: PersonInput): Promise<PersonResult> => {
       try {
         const saved = await updatePersonRow(id, input);
-        setPeople((current) =>
-          current
-            .map((person) => (person.id === id ? saved : person))
-            .sort((a, b) => a.name.localeCompare(b.name)),
+        setPersonBalances((current) =>
+          current.map((entry) => (entry.person.id === id ? { ...entry, person: saved } : entry)),
         );
         return { ok: true, person: saved };
       } catch (error) {
@@ -276,16 +329,16 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
 
   const removePerson = useCallback(
     async (id: string) => {
-      // The database refuses this while history remains; say so in plain words.
-      if (transactions.some((transaction) => transaction.person_id === id)) {
-        return {
-          ok: false as const,
-          message: t('people.hasHistory'),
-        };
+      // The database refuses this while history remains; say so in plain words rather
+      // than letting a foreign-key error reach the user. The count comes from the
+      // balances view, so this holds however long their history is.
+      const entry = personBalances.find((balance) => balance.person.id === id);
+      if (entry && entry.count > 0) {
+        return { ok: false as const, message: t('people.hasHistory') };
       }
       try {
         await deletePersonRow(id);
-        setPeople((current) => current.filter((person) => person.id !== id));
+        setPersonBalances((current) => current.filter((balance) => balance.person.id !== id));
         return { ok: true as const };
       } catch (error) {
         return {
@@ -294,77 +347,75 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [t, transactions],
-  );
-
-  const totals = useMemo(() => calculateTotals(transactions), [transactions]);
-
-  const ledger = useMemo(
-    () => buildRunningBalances(transactions).reverse(),
-    [transactions],
+    [personBalances, t],
   );
 
   const addTransaction = useCallback(
     async (input: TransactionInput, options?: MutationOptions): Promise<MutationResult> => {
       if (!user) return { ok: false, message: t('error.signInAgain') };
 
-      const rejection = warnAboutConsequence(
-        transactions,
+      const warning = warnAboutConsequence(
+        balanceFor(input.person_id),
         input,
-        undefined,
         nameOf(people, input.person_id),
         t,
       );
-      if (rejection && !(rejection.overridable && options?.allowUnusual)) {
-        return { ok: false, message: rejection.message, overridable: rejection.overridable };
+      if (warning && !(warning.overridable && options?.allowUnusual)) {
+        return { ok: false, message: warning.message, overridable: warning.overridable };
       }
 
       try {
         const saved = await insertTransaction(input, user.id);
-        setTransactions((current) => sortChronological([...current, saved]));
+        await invalidate();
         return { ok: true, transaction: saved };
       } catch (error) {
         return { ok: false, message: t(toMessageKey(error, 'error.save')) };
       }
     },
-    [people, t, transactions, user],
+    [balanceFor, invalidate, people, t, user],
   );
 
   const editTransaction = useCallback(
     async (
-      id: string,
+      previous: Transaction,
       input: TransactionInput,
       options?: MutationOptions,
     ): Promise<MutationResult> => {
-      const rejection = warnAboutConsequence(
-        transactions,
+      // The balance to judge against is the person's with the old row taken back out -
+      // otherwise correcting a typo would be measured against the typo.
+      const withoutPrevious = applyChangePaise(balanceFor(input.person_id), {
+        exclude:
+          previous.person_id === input.person_id
+            ? { type: previous.type, amountPaise: amountToPaise(previous.amount) }
+            : undefined,
+      });
+
+      const warning = warnAboutConsequence(
+        withoutPrevious,
         input,
-        id,
         nameOf(people, input.person_id),
         t,
       );
-      if (rejection && !(rejection.overridable && options?.allowUnusual)) {
-        return { ok: false, message: rejection.message, overridable: rejection.overridable };
+      if (warning && !(warning.overridable && options?.allowUnusual)) {
+        return { ok: false, message: warning.message, overridable: warning.overridable };
       }
 
       try {
-        const saved = await updateTransactionRow(id, input);
-        setTransactions((current) =>
-          sortChronological(current.map((item) => (item.id === id ? saved : item))),
-        );
+        const saved = await updateTransactionRow(previous.id, input);
+        await invalidate();
         return { ok: true, transaction: saved };
       } catch (error) {
         return { ok: false, message: t(toMessageKey(error, 'error.save')) };
       }
     },
-    [people, t, transactions],
+    [balanceFor, invalidate, people, t],
   );
 
   const removeTransaction = useCallback(
     async (id: string) => {
       try {
         await deleteTransactionRow(id);
-        setTransactions((current) => current.filter((item) => item.id !== id));
+        await invalidate();
         return { ok: true } as const;
       } catch (error) {
         return {
@@ -373,7 +424,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         };
       }
     },
-    [t],
+    [invalidate, t],
   );
 
   const importTransactions = useCallback(
@@ -387,21 +438,20 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         // Map each name in the backup onto a person, creating those that are new. Names
         // are matched case-insensitively so "mother" and "Mother" do not become two pots.
         const byName = new Map(people.map((person) => [person.name.toLowerCase(), person]));
-        const created: Person[] = [];
         for (const row of rows) {
           const key = row.personName.toLowerCase();
           if (byName.has(key)) continue;
           const person = await insertPerson(
-            { name: row.personName, relationship: row.personRelationship },
+            {
+              name: row.personName,
+              relationship: row.personRelationship,
+              phone: '',
+              email: '',
+              note: '',
+            },
             user.id,
           );
           byName.set(key, person);
-          created.push(person);
-        }
-        if (created.length > 0) {
-          setPeople((current) =>
-            [...current, ...created].sort((a, b) => a.name.localeCompare(b.name)),
-          );
         }
 
         const inputs: TransactionInput[] = rows.map((row) => ({
@@ -414,65 +464,58 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         }));
 
         await insertTransactionsBatch(inputs, user.id);
-        // Re-read from the database so local state matches exactly what was stored.
-        await load();
+        // Re-read from the database so what is on screen matches exactly what was stored.
+        await invalidate();
         return { ok: true as const, imported: inputs.length };
       } catch (error) {
-        await load();
+        await invalidate();
         return {
           ok: false as const,
           message: t(toMessageKey(error, 'error.importFailed')),
         };
       }
     },
-    [load, people, t, user],
-  );
-
-  const findTransaction = useCallback(
-    (id: string) => transactions.find((transaction) => transaction.id === id),
-    [transactions],
+    [invalidate, people, t, user],
   );
 
   const value = useMemo(
     () => ({
-      transactions,
       people,
       personBalances,
       standing,
+      totals,
       addPerson,
       editPerson,
       removePerson,
-      ledger,
-      totals,
       status,
       loadError,
       refresh: load,
+      version,
       addTransaction,
       editTransaction,
       removeTransaction,
       importTransactions,
       balanceIfApplied,
-      findTransaction,
+      balanceFor,
     }),
     [
-      transactions,
       people,
       personBalances,
       standing,
+      totals,
       addPerson,
       editPerson,
       removePerson,
-      ledger,
-      totals,
       status,
       loadError,
       load,
+      version,
       addTransaction,
       editTransaction,
       removeTransaction,
       importTransactions,
       balanceIfApplied,
-      findTransaction,
+      balanceFor,
     ],
   );
 
@@ -484,3 +527,6 @@ export function useLedger(): LedgerContextValue {
   if (!context) throw new Error('useLedger must be used inside LedgerProvider');
   return context;
 }
+
+/** Every transaction the user has, fetched on demand for an export or a backup. */
+export { fetchAllTransactions };

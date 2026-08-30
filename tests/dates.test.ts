@@ -55,7 +55,7 @@ test('filters by type, period and note search', () => {
   ]);
 
   assert.equal(filterLedger(ledger, EMPTY_FILTER).length, 3);
-  assert.equal(filterLedger(ledger, { ...EMPTY_FILTER, type: 'OUT' }).length, 1);
+  assert.equal(filterLedger(ledger, { ...EMPTY_FILTER, direction: 'OUT' }).length, 1);
   assert.equal(
     filterLedger(ledger, { ...EMPTY_FILTER, from: '2026-08-01', to: '2026-08-31' }).length,
     2,
@@ -72,7 +72,7 @@ test('filtered rows keep the running balance they were given', () => {
     makeTransaction({ date: '2026-08-02', type: 'RETURNED', amount: '2000.00' }),
     makeTransaction({ date: '2026-08-03', type: 'RECEIVED', amount: '5000.00' }),
   ]);
-  const onlyReceived = filterLedger(ledger, { ...EMPTY_FILTER, type: 'IN' });
+  const onlyReceived = filterLedger(ledger, { ...EMPTY_FILTER, direction: 'IN' });
   assert.deepEqual(
     onlyReceived.map((entry) => entry.balanceAfterPaise),
     [1_000_000, 1_300_000],

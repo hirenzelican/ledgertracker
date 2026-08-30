@@ -4,9 +4,9 @@ import { cn } from '@/lib/cn';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { endOfMonth, shiftMonth, startOfMonth, todayIso } from '@/lib/format/date';
-import type { LedgerFilter, TypeFilter } from '@/lib/calculations/filters';
+import type { DirectionFilter, LedgerFilter } from '@/lib/calculations/filters';
 
-const TYPE_TABS: { value: TypeFilter; labelKey: 'history.filter.all' | 'history.filter.in' | 'history.filter.out' }[] = [
+const TYPE_TABS: { value: DirectionFilter; labelKey: 'history.filter.all' | 'history.filter.in' | 'history.filter.out' }[] = [
   { value: 'ALL', labelKey: 'history.filter.all' },
   { value: 'IN', labelKey: 'history.filter.in' },
   { value: 'OUT', labelKey: 'history.filter.out' },
@@ -106,11 +106,11 @@ export function TransactionFilters({
             key={tab.value}
             type="button"
             role="tab"
-            aria-selected={filter.type === tab.value}
-            onClick={() => onChange({ ...filter, type: tab.value })}
+            aria-selected={filter.direction === tab.value}
+            onClick={() => onChange({ ...filter, direction: tab.value })}
             className={cn(
               'min-h-[42px] flex-1 rounded-xl border px-3 text-sm font-medium transition',
-              filter.type === tab.value
+              filter.direction === tab.value
                 ? 'border-brand bg-brand-soft text-ink'
                 : 'border-border bg-surface text-ink-muted',
             )}

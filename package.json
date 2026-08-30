@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --import ./tests/register.mjs --test tests/*.test.ts",
     "icons": "node --experimental-strip-types scripts/generate-icons.mjs",
-    "deploy": "npm run build && npx wrangler pages deploy out"
+    "deploy": "npm run build && npx wrangler pages deploy out",
+    "verify:sql": "node --experimental-strip-types --import ./tests/register.mjs scripts/verify-sql.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

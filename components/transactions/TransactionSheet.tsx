@@ -9,7 +9,7 @@ import { Sheet } from '@/components/ui/Sheet';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useToast } from '@/components/providers/ToastProvider';
-import { formatRupees } from '@/lib/calculations/money';
+import { amountToPaise, formatRupees } from '@/lib/calculations/money';
 import { describePersonBalance } from '@/lib/calculations/balance';
 import type { Transaction, TransactionInput, TransactionType } from '@/types/transaction';
 import { useTranslation } from '@/components/providers/LanguageProvider';
@@ -33,13 +33,21 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
   if (!mode) return null;
 
   const isEdit = mode.kind === 'edit';
-  const editingId = isEdit ? mode.transaction.id : undefined;
+  const previous = isEdit ? mode.transaction : null;
   const type = isEdit ? mode.transaction.type : mode.type;
+
+  // The row being edited has to come back out of the balance before the new one goes in,
+  // and only when it belonged to this person - moving a transaction to someone else
+  // leaves the new person's balance untouched by the old row.
+  const excludeFor = (personId: string) =>
+    previous && previous.person_id === personId
+      ? { type: previous.type, amountPaise: amountToPaise(previous.amount) }
+      : undefined;
 
   // For a new transaction this is that person's current balance; for an edit it is their
   // balance with the edited transaction taken back out, which is what the guard uses.
   const balanceForPerson = (personId: string) =>
-    balanceIfApplied(personId, { excludeId: editingId });
+    balanceIfApplied(personId, { exclude: excludeFor(personId) });
 
   const title = isEdit ? t('form.editTitle') : t(`type.${type}.action`);
 
@@ -47,13 +55,13 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
 
   const handleSubmit = async (input: TransactionInput, options?: { force?: boolean }) => {
     const newBalancePaise = balanceIfApplied(input.person_id, {
-      excludeId: editingId,
+      exclude: excludeFor(input.person_id),
       include: { type: input.type, amountPaise: input.amountPaise },
     });
 
     const mutationOptions = { allowUnusual: options?.force === true };
     const result = isEdit
-      ? await editTransaction(mode.transaction.id, input, mutationOptions)
+      ? await editTransaction(mode.transaction, input, mutationOptions)
       : await addTransaction(input, mutationOptions);
 
     if (!result.ok) {

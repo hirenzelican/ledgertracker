@@ -15,7 +15,9 @@ import { Button } from '@/components/ui/Button';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { useLedgerPage } from '@/components/providers/useLedgerPage';
 import { useTranslation } from '@/components/providers/LanguageProvider';
+import { EMPTY_QUERY } from '@/types/transaction';
 import type { TransactionType } from '@/types/transaction';
 
 const WELCOME_KEY = 'potli-welcome-dismissed';
@@ -30,7 +32,10 @@ export default function DashboardPage() {
 }
 
 function Dashboard() {
-  const { ledger, totals, status, loadError, refresh, personBalances, standing } = useLedger();
+  const { totals, status, loadError, refresh, personBalances, standing } = useLedger();
+  // Five rows, fetched as five rows. The dashboard used to slice them off the front of
+  // the whole ledger, which meant downloading all of it to show a handful.
+  const recent = useLedgerPage(EMPTY_QUERY, { pageSize: RECENT_COUNT });
   const { t } = useTranslation();
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -71,8 +76,7 @@ function Dashboard() {
     [dismissWelcome],
   );
 
-  const recent = ledger.slice(0, RECENT_COUNT);
-  const isEmpty = status === 'ready' && ledger.length === 0;
+  const isEmpty = status === 'ready' && totals.count === 0;
 
   return (
     <AppShell
@@ -95,7 +99,7 @@ function Dashboard() {
       }
     >
       <div className="space-y-4">
-        {showWelcome && ledger.length === 0 && status === 'ready' ? (
+        {showWelcome && totals.count === 0 && status === 'ready' ? (
           <WelcomeCard onStart={() => openSheet('RECEIVED')} onDismiss={dismissWelcome} />
         ) : null}
 
@@ -129,11 +133,11 @@ function Dashboard() {
           </section>
         ) : null}
 
-        {recent.length > 0 ? (
+        {recent.entries.length > 0 ? (
           <section>
             <SectionHeading>{t('dashboard.recentHeading')}</SectionHeading>
             <div className="card overflow-hidden p-0">
-              <TransactionList entries={recent} />
+              <TransactionList entries={recent.entries} />
             </div>
             <Link
               href="/transactions/"

@@ -44,12 +44,16 @@ export function makePerson(
   name: string,
   relationship: Relationship = 'OTHER',
   id = `person-${name.toLowerCase()}`,
+  details: { phone?: string | null; email?: string | null; note?: string | null } = {},
 ): Person {
   return {
     id,
     user_id: 'user-1',
     name,
     relationship,
+    phone: details.phone ?? null,
+    email: details.email ?? null,
+    note: details.note ?? null,
     created_at: '2026-01-01T00:00:00.000Z',
     updated_at: '2026-01-01T00:00:00.000Z',
   };

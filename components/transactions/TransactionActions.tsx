@@ -41,7 +41,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
   const handleDelete = async () => {
     setDeleting(true);
     const balanceAfterDelete = balanceIfApplied(transaction.person_id, {
-      excludeId: transaction.id,
+      exclude: { type: transaction.type, amountPaise },
     });
     const result = await removeTransaction(transaction.id);
     setDeleting(false);
