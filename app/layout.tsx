@@ -7,6 +7,7 @@ import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { Toaster } from '@/components/ui/Toaster';
 import { ServiceWorkerRegistrar } from '@/components/layout/ServiceWorkerRegistrar';
+import { SplashScreen } from '@/components/layout/SplashScreen';
 
 export const metadata: Metadata = {
   title: 'Potli',
@@ -56,6 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AuthProvider>
                 <LedgerProvider>
                   {children}
+                  <SplashScreen />
                   <Toaster />
                   <ServiceWorkerRegistrar />
                 </LedgerProvider>

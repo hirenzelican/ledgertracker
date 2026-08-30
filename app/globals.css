@@ -99,3 +99,103 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+ * Launch screen animations. One variant is active at a time (see lib/brand/splash.ts);
+ * all four are kept here so switching is a one-word change rather than a rewrite.
+ */
+@keyframes splash-pulse {
+  0%,
+  100% {
+    transform: scale(0.92);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes splash-rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.86);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes splash-ring {
+  from {
+    opacity: 0.55;
+    transform: scale(0.7);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+@keyframes splash-shimmer {
+  from {
+    transform: translateX(-130%) skewX(-18deg);
+  }
+  to {
+    transform: translateX(230%) skewX(-18deg);
+  }
+}
+
+@keyframes splash-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.splash-mark {
+  will-change: transform;
+}
+
+.splash-pulse .splash-mark {
+  animation: splash-pulse 1.8s ease-in-out infinite;
+}
+
+.splash-rise .splash-mark {
+  animation:
+    splash-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both,
+    splash-pulse 2.4s 620ms ease-in-out infinite;
+}
+
+.splash-ripple .splash-mark {
+  animation: splash-pulse 2.6s ease-in-out infinite;
+}
+
+.splash-ring {
+  animation: splash-ring 2s ease-out infinite;
+}
+
+.splash-shimmer-sweep {
+  animation: splash-shimmer 2.2s ease-in-out infinite;
+}
+
+.splash-caption {
+  animation: splash-fade-in 700ms 260ms ease-out both;
+}
+
+/*
+ * With reduced motion the splash still appears - it is doing a job, not decorating - but
+ * nothing moves.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .splash-mark,
+  .splash-ring,
+  .splash-shimmer-sweep,
+  .splash-caption {
+    animation: none !important;
+  }
+  .splash-ring {
+    display: none;
+  }
+}

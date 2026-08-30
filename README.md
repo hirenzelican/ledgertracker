@@ -67,7 +67,8 @@ money held for one person can never fund a return to another.
 - **Backup** — CSV export, JSON backup and validated JSON restore.
 - **One mark, one source** — the bag logo is defined once in `lib/brand/logo.ts` and
   rendered both as SVG in the app and as the PNG icon set, so they cannot drift apart.
-- **PWA** — installable, standalone, offline-aware, light/dark themes.
+- **PWA** — installable, standalone, offline-aware, light/dark themes, with an animated
+  launch screen that covers the wait for your data rather than showing an empty ₹0.
 
 Deliberately *not* included: budgets, expenses, investments, bills, bank imports,
 lending or interest. It tracks one thing.
@@ -355,6 +356,33 @@ The translations shipped here were written for this app rather than machine-tran
 wholesale, but **they have not been reviewed by native speakers** - worth doing before a
 store launch. The connection-diagnostics panel on the login screen is deliberately left in
 English: it is a developer tool, and its wording matches this README.
+
+## Launch screen
+
+Android draws its own launch screen from the manifest before the page loads - the icon on
+`background_color`, which is set to the brand teal so it hands over to the app's own splash
+without a change of colour. Nothing about that system screen can be animated.
+
+The animated splash in `components/layout/SplashScreen.tsx` covers what comes next: the
+gap while Supabase confirms the session and returns the ledger. It ships in the prerendered
+HTML, so it paints with the first frame rather than waiting for React, and it leaves only
+when the app genuinely has something to show - with a 0.9s floor so it cannot flicker past,
+and a 4s ceiling so a dead network cannot trap anyone behind it. Under
+`prefers-reduced-motion` it still appears but holds still.
+
+Four animation styles are implemented in `app/globals.css`; the active one is a single word
+in `lib/brand/splash.ts`:
+
+```ts
+export const ACTIVE_SPLASH_VARIANT: SplashVariant = 'pulse';
+```
+
+| Variant | What it does |
+| --- | --- |
+| `pulse` | The mark breathes, zooming gently in and out (default) |
+| `rise` | It lifts into place with a settle, then breathes |
+| `ripple` | Rings spread outward, like a coin dropped in water |
+| `shimmer` | A light sweeps across the bag |
 
 ## Design notes
 
