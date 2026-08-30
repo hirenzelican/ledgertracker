@@ -22,7 +22,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -362,6 +362,75 @@ check(
   amountToPaise(otherUser.money_in) === 9_999_900 && Number(otherUser.entry_count) === 1,
   JSON.stringify(otherUser),
 );
+
+/* ------------------------------------------------------- the columns the app asks for */
+
+/**
+ * Every column the data layer names must exist on the object it names it from.
+ *
+ * This check exists because its absence cost a production outage: a migration added
+ * `tags` to the `transactions` table, but `transaction_ledger` lists its columns
+ * explicitly, so the view never gained it. The app asked the view for `tags`, PostgREST
+ * answered "column does not exist", and every history screen failed to load - while the
+ * browser tests passed, because the mock built view rows by spreading the whole
+ * transaction and so had a column the real view did not.
+ *
+ * Reading the column list out of the source rather than restating it here is the point:
+ * a restated list drifts in exactly the same way the view did.
+ */
+console.log('\n== Every column the client selects exists on the view ==');
+
+function selectedColumns(file, constant) {
+  const source = readFileSync(file, 'utf8');
+  const read = (name) => {
+    const match = source.match(new RegExp(`const ${name}\\s*=\\s*([^;]+);`));
+    return match ? match[1] : '';
+  };
+
+  // A column list is either a quoted string, a string split across lines and joined with
+  // `+`, or a template literal that interpolates another such constant. Resolve one
+  // level of interpolation so `\`${COLUMNS},balance\`` reads as the whole list.
+  const resolved = read(constant).replace(/\$\{(\w+)\}/g, (_, name) =>
+    [...read(name).matchAll(/['`]([^'`]*)['`]/g)].map((quoted) => quoted[1]).join(''),
+  );
+
+  return [...resolved.matchAll(/['`]([^'`]*)['`]/g)]
+    .flatMap((quoted) => quoted[1].split(','))
+    .map((name) => name.trim())
+    .filter((name) => name !== '' && /^[a-z_]+$/.test(name));
+}
+
+const SELECTS = [
+  ['transaction_ledger', selectedColumns('lib/supabase/transactions.ts', 'COLUMNS').concat('running_balance')],
+  ['person_balances', selectedColumns('lib/supabase/people.ts', 'VIEW_COLUMNS')],
+  ['recurring_transactions', selectedColumns('lib/supabase/recurring.ts', 'COLUMNS')],
+];
+
+for (const [object, wanted] of SELECTS) {
+  const [row] = query(
+    `select coalesce(string_agg(column_name, ','), '') as cols
+     from information_schema.columns where table_schema = 'public' and table_name = '${object}'`,
+    { asUser: USER_A },
+  );
+  const present = new Set(row.cols.split(',').filter(Boolean));
+  const missing = wanted.filter((name) => !present.has(name));
+  check(
+    `${object} has all ${wanted.length} columns the client selects`,
+    wanted.length > 0 && missing.length === 0,
+    missing.length > 0 ? `missing: ${missing.join(', ')}` : '',
+  );
+}
+
+// And prove it end to end: actually run the select the client runs.
+for (const [object, wanted] of SELECTS) {
+  let failed = null;
+  try {
+    query(`select ${wanted.join(', ')} from public.${object} limit 1`, { asUser: USER_A });
+  } catch (error) {
+    failed = String(error.stderr ?? error).split('\n').find((line) => line.includes('ERROR'));
+  }
+  check(`the client's select from ${object} runs`, failed === null, failed ?? '');
+}
 
 /* ------------------------------------------- tags, recurrence dates, monthly totals */
 

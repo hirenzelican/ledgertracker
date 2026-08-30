@@ -45,6 +45,40 @@ alter table public.transactions add constraint transactions_tags_shape check (
 -- Containment queries (`tags @> '{rent}'`) need GIN to avoid reading every row.
 create index if not exists transactions_tags_idx on public.transactions using gin (tags);
 
+-- `transaction_ledger` lists its columns explicitly, so adding one to the table does not
+-- add it to the view. Recreating it here is not optional: without this the app asks for
+-- `tags` from the view, PostgREST answers "column does not exist", and every history
+-- screen fails to load. Safe to run again - it is a drop-and-create.
+drop view if exists public.transaction_ledger;
+create view public.transaction_ledger
+with (security_invoker = true) as
+select
+  t.id,
+  t.user_id,
+  t.person_id,
+  t.transaction_date,
+  t.type,
+  t.amount,
+  t.method,
+  t.note,
+  t.tags,
+  t.created_at,
+  t.updated_at,
+  sum(case when t.type in ('RECEIVED', 'REPAID') then t.amount else -t.amount end)
+    over (
+      partition by t.user_id, t.person_id
+      order by t.transaction_date, t.created_at, t.id
+      rows between unbounded preceding and current row
+    ) as running_balance
+from public.transactions t;
+
+comment on view public.transaction_ledger is
+  'Transactions with the per-person running balance already applied, so any page of rows
+   can be rendered without the ones before it.';
+
+revoke all on public.transaction_ledger from anon, public;
+grant select on public.transaction_ledger to authenticated;
+
 -- Every tag the user has used, with how often. Drives the picker and the filter chips
 -- without downloading a single transaction.
 drop view if exists public.tag_counts;

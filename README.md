@@ -231,6 +231,13 @@ row-level security still confines each user to their own rows *through the views
 `anon` refused outright. It skips cleanly when no database is reachable; point it at one
 with `POTLI_TEST_PG`.
 
+It also reads the column lists out of `lib/supabase/*.ts` and checks that every column the
+client selects exists on the view it selects from, then runs that exact select. A view
+names its columns explicitly, so adding a column to a table does **not** add it to the
+view - and asking a view for a column it lacks fails the whole screen with a message that
+says nothing useful. That happened once, in production; this is what stops it happening
+again.
+
 ## Production build
 
 ```bash
