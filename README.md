@@ -359,16 +359,22 @@ compile error rather than a blank space on someone's screen. `npm test` addition
 checks that every language covers every key, that `{placeholder}` names match English
 exactly, and that a language has not simply been copied from English.
 
-Adding a language is one file plus one line:
+Seven ship today: English, हिन्दी, বাংলা, मराठी, తెలుగు, தமிழ் and ગુજરાતી.
+
+Adding another is one file plus one line:
 
 ```ts
-// lib/i18n/ta.ts
+// lib/i18n/kn.ts
 import type { Dictionary } from './en';
-export const ta: Dictionary = { /* TypeScript will name every key you still owe */ };
+export const kn: Dictionary = { /* TypeScript will name every key you still owe */ };
 
 // lib/i18n/locales.ts
-export const LOCALES = ['en', 'hi', 'gu', 'bn', 'mr', 'ta'] as const;
+export const LOCALES = ['en', 'hi', 'bn', 'mr', 'te', 'ta', 'gu', 'kn'] as const;
 ```
+
+The type is the whole safety net: a dictionary missing a key does not compile, so a
+language cannot ship half-translated. Tags are stored in whatever script they are typed
+in - the normaliser keeps combining marks, so किराया and கல்வி survive it intact.
 
 Amounts stay in Indian digit grouping (₹1,00,000) in every language, since that is what
 the numbers mean regardless of the words around them. Dates take their month names from
@@ -377,9 +383,7 @@ the dictionary.
 The translations shipped here were written for this app rather than machine-translated
 wholesale, but **they have not been reviewed by native speakers** - worth doing before a
 store launch. The connection-diagnostics panel on the login screen is deliberately left in
-English: it is a developer tool, and its wording matches this README.
-
-## Sharing a summary
+English: it is a developer tool, and its wording matches this README. Sharing a summary
 
 The share button on a contact's screen and on the statement builds a plain-text message -
 the balance in one sentence, then the entries behind it, newest first, trimmed to twenty

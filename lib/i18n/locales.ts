@@ -3,6 +3,8 @@ import { hi } from './hi';
 import { gu } from './gu';
 import { bn } from './bn';
 import { mr } from './mr';
+import { ta } from './ta';
+import { te } from './te';
 
 /**
  * The languages Potli speaks. Adding another is one file that satisfies `Dictionary`
@@ -13,19 +15,21 @@ import { mr } from './mr';
  * produce text, so they never hard-code a language. */
 export type Translate = (key: MessageKey, values?: Record<string, string | number>) => string;
 
-export const LOCALES = ['en', 'hi', 'gu', 'bn', 'mr'] as const;
+export const LOCALES = ['en', 'hi', 'bn', 'mr', 'te', 'ta', 'gu'] as const;
 export type Locale = (typeof LOCALES)[number];
 
 /** Each language named in itself, which is how people recognise their own. */
 export const LOCALE_NAMES: Record<Locale, string> = {
   en: 'English',
   hi: 'हिन्दी',
-  gu: 'ગુજરાતી',
   bn: 'বাংলা',
   mr: 'मराठी',
+  te: 'తెలుగు',
+  ta: 'தமிழ்',
+  gu: 'ગુજરાતી',
 };
 
-export const DICTIONARIES: Record<Locale, Dictionary> = { en, hi, gu, bn, mr };
+export const DICTIONARIES: Record<Locale, Dictionary> = { en, hi, bn, mr, te, ta, gu };
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === 'string' && (LOCALES as readonly string[]).includes(value);

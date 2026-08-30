@@ -56,7 +56,11 @@ test('browser languages map onto a supported one', () => {
   assert.equal(matchLocale(['gu']), 'gu');
   assert.equal(matchLocale(['bn-BD']), 'bn');
   assert.equal(matchLocale(['mr-IN']), 'mr');
-  // Unsupported languages fall back to English rather than to a regional cousin.
-  assert.equal(matchLocale(['ta-IN']), 'en');
+  assert.equal(matchLocale(['ta-IN']), 'ta');
+  assert.equal(matchLocale(['te-IN']), 'te');
+  // Unsupported languages fall back to English rather than to a regional cousin - a
+  // Kannada speaker gets English, not Telugu.
+  assert.equal(matchLocale(['kn-IN']), 'en');
+  assert.equal(matchLocale(['fr-FR']), 'en');
   assert.equal(matchLocale([]), 'en');
 });
