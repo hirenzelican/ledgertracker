@@ -423,4 +423,19 @@ export const gu: Dictionary = {
   /* -------------------------------------------------------------------------- badge */
   'settings.badge': 'ઍપ આઇકન પર બૅજ બતાવો',
   'settings.badgeHint': 'જેમની પાસેથી લેવાના છે અને જે નોંધ ઉમેરવાની બાકી છે, તેની ગણતરી.',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'ગોપનીયતા',
+  'account.delete': 'મારું ખાતું કાઢી નાખો',
+  'account.deleteHint': 'બધું કાયમ માટે કાઢી નાખશે.',
+  'account.deleteTitle': 'તમારું ખાતું કાઢી નાખો',
+  'account.deleteBody':
+    'આનાથી {entries} અને {people} કાઢી નાખવામાં આવશે, સાથે તમારા વારંવારના નિયમો અને તમારું લૉગિન પણ.',
+  'account.deleteForever': 'આ પાછું લઈ શકાતું નથી, અને કંઈ પણ રહેશે નહીં.',
+  'account.backupFirst': 'પહેલાં તમારા રેકોર્ડની નકલ લઈ લો — આ છેલ્લી તક છે.',
+  'account.typeToConfirm': 'ખાતરી માટે {word} લખો',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'કાયમ માટે કાઢી નાખો',
+  'account.deleteAlso': '{email}નું લૉગિન પણ કાઢી નાખવામાં આવશે.',
+  'account.deleteFailed': 'ખાતું કાઢી શકાયું નહીં. ફરી પ્રયાસ કરો.',
 };

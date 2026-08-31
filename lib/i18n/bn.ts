@@ -419,4 +419,19 @@ export const bn: Dictionary = {
   /* -------------------------------------------------------------------------- badge */
   'settings.badge': 'অ্যাপ আইকনে ব্যাজ দেখান',
   'settings.badgeHint': 'যাঁরা টাকা দেবেন এবং যে এন্ট্রি যোগ করা বাকি, তার সংখ্যা।',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'গোপনীয়তা',
+  'account.delete': 'আমার অ্যাকাউন্ট মুছুন',
+  'account.deleteHint': 'সবকিছু স্থায়ীভাবে মুছে যাবে।',
+  'account.deleteTitle': 'আপনার অ্যাকাউন্ট মুছুন',
+  'account.deleteBody':
+    'এতে {entries} এবং {people} মুছে যাবে, সেই সঙ্গে আপনার নিয়মিত নিয়ম ও আপনার লগইনও।',
+  'account.deleteForever': 'এটি ফিরিয়ে আনা যাবে না, কিছুই থাকবে না।',
+  'account.backupFirst': 'আগে আপনার হিসাবের একটি কপি নিয়ে নিন — এটাই শেষ সুযোগ।',
+  'account.typeToConfirm': 'নিশ্চিত করতে {word} লিখুন',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'চিরতরে মুছুন',
+  'account.deleteAlso': '{email}-এর লগইনও মুছে যাবে।',
+  'account.deleteFailed': 'অ্যাকাউন্ট মোছা গেল না। আবার চেষ্টা করুন।',
 };

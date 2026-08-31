@@ -188,7 +188,9 @@ function Statement() {
               <div className="no-print mt-5 space-y-2">
                 <ShareButton
                   className="w-full"
-                  buildText={() => buildStatementShareText(statement, personName, t)}
+                  buildText={() =>
+                    buildStatementShareText(statement, personName, t, window.location.origin)
+                  }
                 />
                 <Button
                   variant="secondary"

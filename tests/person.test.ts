@@ -214,6 +214,7 @@ test('a statement built from a fetched page matches one built from the rows', ()
 /* ------------------------------------------------------------------------ CSV import */
 
 import { cleanAmount, parseCsv, parseCsvImport, parseFlexibleDate } from '@/lib/validation/csv';
+import { buildContactShareText } from '@/lib/export/share';
 import { normaliseTag, normaliseTags, parseTagInput } from '@/lib/validation/tags';
 
 test('the CSV reader honours quotes rather than splitting on every comma', () => {
@@ -355,4 +356,40 @@ test('non-Latin tags survive normalisation', () => {
   // Hindi and Gujarati labels must round-trip: the app is used in these languages.
   assert.equal(normaliseTag(' किराया '), 'किराया');
   assert.deepEqual(parseTagInput('किराया, દવા'), ['किराया', 'દવા']);
+});
+
+/* -------------------------------------------------------------- the share signature */
+
+import { signature } from '@/lib/export/share';
+
+test('the share signature carries a link back to wherever the app is served from', () => {
+  // The whole point: the person reading a shared statement has no other way in.
+  assert.equal(signature('https://potli.app'), '— Potli · potli.app');
+  assert.equal(
+    signature('https://ledgertracker-ten.vercel.app'),
+    '— Potli · ledgertracker-ten.vercel.app',
+  );
+  assert.equal(signature('http://localhost:3000'), '— Potli · localhost:3000');
+  assert.equal(signature('https://potli.app/'), '— Potli · potli.app');
+});
+
+test('with no origin the signature degrades to the name, never a broken link', () => {
+  assert.equal(signature(), '— Potli');
+  assert.equal(signature(''), '— Potli');
+});
+
+test('the wordmark stays Latin so a reader can search for it', () => {
+  // In-app the name is translated - पोटली, பொட்லி - and should be. A shared message is the
+  // exception: it reaches someone without the app, who cannot type పొట్లి into a search box.
+  const hindi = buildContactShareText(
+    makePerson('Mother', 'MOTHER', 'p1'),
+    800_000,
+    1_000_000,
+    200_000,
+    [],
+    '2026-08-26',
+    t,
+    'https://potli.app',
+  );
+  assert.ok(hindi.endsWith('— Potli · potli.app'), hindi.slice(-40));
 });

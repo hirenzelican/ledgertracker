@@ -423,4 +423,19 @@ export const hi: Dictionary = {
   /* -------------------------------------------------------------------------- badge */
   'settings.badge': 'ऐप आइकॉन पर बैज दिखाएँ',
   'settings.badgeHint': 'जिनसे पैसा लेना है और जो प्रविष्टियाँ जुड़नी बाक़ी हैं, उनकी गिनती।',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'निजता',
+  'account.delete': 'मेरा खाता हटाएँ',
+  'account.deleteHint': 'सब कुछ हमेशा के लिए हट जाएगा।',
+  'account.deleteTitle': 'अपना खाता हटाएँ',
+  'account.deleteBody':
+    'इससे {entries} और {people} हटेंगे, साथ ही आपके दोहराने वाले नियम और आपका लॉगिन भी।',
+  'account.deleteForever': 'यह वापस नहीं लिया जा सकता, और कुछ भी नहीं बचेगा।',
+  'account.backupFirst': 'पहले अपने रिकॉर्ड की एक नक़ल ले लें — यही आख़िरी मौक़ा है।',
+  'account.typeToConfirm': 'पुष्टि के लिए {word} लिखें',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'हमेशा के लिए हटाएँ',
+  'account.deleteAlso': '{email} का लॉगिन भी हटा दिया जाएगा।',
+  'account.deleteFailed': 'खाता नहीं हट सका। फिर कोशिश करें।',
 };

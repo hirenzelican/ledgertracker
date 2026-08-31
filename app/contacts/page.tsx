@@ -248,6 +248,7 @@ function Contacts() {
                   history.entries,
                   todayIso(),
                   t,
+                  window.location.origin,
                 )
               }
             />

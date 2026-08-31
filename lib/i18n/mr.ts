@@ -417,4 +417,19 @@ export const mr: Dictionary = {
   /* -------------------------------------------------------------------------- badge */
   'settings.badge': 'ॲप चिन्हावर बॅज दाखवा',
   'settings.badgeHint': 'ज्यांच्याकडून येणे आहे आणि ज्या नोंदी जोडायच्या आहेत, त्यांची संख्या.',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'गोपनीयता',
+  'account.delete': 'माझे खाते काढून टाका',
+  'account.deleteHint': 'सर्व काही कायमचे काढून टाकेल.',
+  'account.deleteTitle': 'तुमचे खाते काढून टाका',
+  'account.deleteBody':
+    'यामुळे {entries} आणि {people} काढले जातील, तसेच तुमचे पुन्हा येणारे नियम आणि तुमचे लॉगिनही.',
+  'account.deleteForever': 'हे परत घेता येणार नाही, आणि काहीही राहणार नाही.',
+  'account.backupFirst': 'आधी तुमच्या नोंदींची प्रत घ्या — हीच शेवटची संधी आहे.',
+  'account.typeToConfirm': 'खात्रीसाठी {word} लिहा',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'कायमचे काढून टाका',
+  'account.deleteAlso': '{email} चे लॉगिनही काढले जाईल.',
+  'account.deleteFailed': 'खाते काढता आले नाही. पुन्हा प्रयत्न करा.',
 };

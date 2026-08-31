@@ -416,4 +416,19 @@ export const ta: Dictionary = {
 
   'settings.badge': 'செயலி சின்னத்தில் எண்ணைக் காட்டு',
   'settings.badgeHint': 'உங்களுக்குத் தர வேண்டியவர்கள், சேர்க்கக் காத்திருக்கும் பதிவுகள் - இவற்றின் எண்ணிக்கை.',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'தனியுரிமை',
+  'account.delete': 'என் கணக்கை நீக்கு',
+  'account.deleteHint': 'எல்லாவற்றையும் நிரந்தரமாக நீக்கும்.',
+  'account.deleteTitle': 'உங்கள் கணக்கை நீக்கு',
+  'account.deleteBody':
+    'இது {entries} மற்றும் {people}, உங்கள் திரும்பும் விதிகள், உங்கள் உள்நுழைவு ஆகியவற்றை நீக்கும்.',
+  'account.deleteForever': 'இதைத் திரும்பப் பெற முடியாது, எதுவும் மிஞ்சாது.',
+  'account.backupFirst': 'முதலில் உங்கள் பதிவுகளின் நகலை எடுத்துக் கொள்ளுங்கள் — இதுவே கடைசி வாய்ப்பு.',
+  'account.typeToConfirm': 'உறுதிப்படுத்த {word} என்று தட்டச்சு செய்யுங்கள்',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'நிரந்தரமாக நீக்கு',
+  'account.deleteAlso': '{email} உள்நுழைவும் நீக்கப்படும்.',
+  'account.deleteFailed': 'கணக்கை நீக்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
 };

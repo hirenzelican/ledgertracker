@@ -165,6 +165,22 @@ writeFileSync(
 );
 
 writeFileSync(
+  join(scratch, 'delete-fixture.sql'),
+  `delete from public.transactions; delete from public.recurring_transactions;
+   delete from public.people; delete from auth.users;
+   insert into auth.users (id) values ('${USER_A}'), ('${USER_B}');
+   insert into public.people (id, user_id, name, relationship) values
+     ('${uuid('p1')}', '${USER_A}', 'Mother', 'MOTHER'),
+     ('${uuid('p9')}', '${USER_B}', 'Theirs', 'OTHER');
+   insert into public.transactions (user_id, person_id, transaction_date, type, amount, method) values
+     ('${USER_A}', '${uuid('p1')}', '2026-08-01', 'RECEIVED', 5000, 'CASH'),
+     ('${USER_B}', '${uuid('p9')}', '2026-08-01', 'RECEIVED', 9999, 'CASH');
+   insert into public.recurring_transactions
+     (user_id, person_id, type, amount, method, frequency, start_date, next_due)
+   values ('${USER_A}', '${uuid('p1')}', 'RECEIVED', 100, 'CASH', 'MONTHLY', '2026-08-01', '2026-09-01');`,
+);
+
+writeFileSync(
   join(scratch, 'dormant.sql'),
   `delete from public.recurring_transactions;
    insert into public.recurring_transactions
@@ -522,6 +538,43 @@ check(
   JSON.stringify(months.map((row) => [row.month, row.closing_balance])),
 );
 
+console.log('\n== Deleting your own account deletes only your own account ==');
+run(join(scratch, 'delete-fixture.sql'));
+
+// `auth.users` is counted as the superuser, not as `authenticated` - the app role has no
+// grant on it, and the fact that this check had to be written this way is itself the
+// reassurance: a signed-in user cannot so much as count the accounts table.
+const beforeDelete = query(
+  `select (select count(*) from auth.users)::int as users,
+          (select count(*) from public.people)::int as people,
+          (select count(*) from public.transactions)::int as txns`,
+);
+check('two users present to start', beforeDelete[0].users === 2, JSON.stringify(beforeDelete[0]));
+
+query(`select 1 from (select public.delete_my_account()) x`, { asUser: USER_A });
+
+const afterDelete = query(
+  `select (select count(*) from auth.users)::int as users,
+          (select count(*) from public.people where user_id = '${USER_B}')::int as their_people,
+          (select count(*) from public.transactions where user_id = '${USER_A}')::int as my_txns,
+          (select count(*) from public.recurring_transactions where user_id = '${USER_A}')::int as my_rules`,
+);
+check('the caller is gone', afterDelete[0].users === 1, `${afterDelete[0].users} users left`);
+check('their transactions are gone', afterDelete[0].my_txns === 0, `${afterDelete[0].my_txns}`);
+check('their repeating rules are gone', afterDelete[0].my_rules === 0, `${afterDelete[0].my_rules}`);
+check(
+  "the other user's data is untouched",
+  afterDelete[0].their_people > 0,
+  `${afterDelete[0].their_people} contacts survive`,
+);
+
+// The ON DELETE RESTRICT on transactions.person_id is exactly what an ordering mistake
+// would trip over, so prove the function's explicit order avoids it.
+check(
+  'deletion is not blocked by the restrict on person_id',
+  afterDelete[0].my_txns === 0 && afterDelete[0].users === 1,
+);
+
 console.log('\n== anon is refused outright ==');
 for (const [sql, what] of [
   ['select * from public.person_balances', 'person_balances'],
@@ -530,6 +583,7 @@ for (const [sql, what] of [
   ['select * from public.tag_counts', 'tag_counts'],
   ['select * from public.recurring_transactions', 'recurring_transactions'],
   ["select * from public.post_due_recurring('2026-01-01'::date)", 'post_due_recurring'],
+  ['select public.delete_my_account()', 'delete_my_account'],
   ['select * from public.monthly_totals()', 'monthly_totals'],
 ]) {
   const file = join(scratch, 'anon.sql');

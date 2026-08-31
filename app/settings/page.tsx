@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Card, SectionHeading } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
+import { DeleteAccount } from '@/components/settings/DeleteAccount';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
 import { badgeEnabled, badgingSupported, setBadgeEnabled } from '@/components/layout/AppBadge';
@@ -123,6 +124,12 @@ function Settings() {
             <Button variant="secondary" size="lg" className="w-full" onClick={() => setConfirmSignOut(true)}>
               {t('settings.logout')}
             </Button>
+
+            {/* Last in the section and visually quieter than logging out: it is the one
+                action here that cannot be undone by signing back in. */}
+            <div className="border-t border-border pt-4">
+              <DeleteAccount />
+            </div>
           </Card>
         </section>
 
@@ -279,6 +286,15 @@ function Settings() {
               <span className="text-ink-muted">{t('settings.version')}</span>
               <span className="tnum text-ink">{APP_VERSION}</span>
             </div>
+            <Link
+              href="/privacy/"
+              className="flex min-h-[44px] items-center justify-between border-t border-border pt-3 text-ink"
+            >
+              {t('settings.privacy')}
+              <span aria-hidden="true" className="text-ink-faint">
+                →
+              </span>
+            </Link>
           </Card>
         </section>
       </div>

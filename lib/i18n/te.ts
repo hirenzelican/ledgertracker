@@ -416,4 +416,19 @@ export const te: Dictionary = {
 
   'settings.badge': 'యాప్ చిహ్నంపై సంఖ్య చూపించు',
   'settings.badgeHint': 'మీకు ఇవ్వాల్సిన వాళ్ళు, చేర్చడానికి ఎదురుచూస్తున్న నమోదులు - వీటి సంఖ్య.',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'గోప్యత',
+  'account.delete': 'నా ఖాతాను తొలగించు',
+  'account.deleteHint': 'అంతటినీ శాశ్వతంగా తొలగిస్తుంది.',
+  'account.deleteTitle': 'మీ ఖాతాను తొలగించండి',
+  'account.deleteBody':
+    'ఇది {entries}, {people}, మీ పునరావృత నియమాలు, మీ ప్రవేశాన్ని తొలగిస్తుంది.',
+  'account.deleteForever': 'దీన్ని వెనక్కి తీసుకోలేరు, ఏదీ మిగలదు.',
+  'account.backupFirst': 'ముందు మీ నమోదుల కాపీ తీసుకోండి — ఇదే చివరి అవకాశం.',
+  'account.typeToConfirm': 'ధృవీకరించడానికి {word} టైప్ చేయండి',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'శాశ్వతంగా తొలగించు',
+  'account.deleteAlso': '{email} ప్రవేశం కూడా తొలగించబడుతుంది.',
+  'account.deleteFailed': 'ఖాతాను తొలగించలేకపోయాం. మళ్ళీ ప్రయత్నించండి.',
 };

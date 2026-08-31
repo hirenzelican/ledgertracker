@@ -17,6 +17,29 @@ import type { Person, TransactionWithBalance } from '@/types/transaction';
 /** Beyond this the message becomes a wall of text nobody reads on a phone. */
 export const MAX_SHARED_LINES = 20;
 
+/**
+ * The wordmark stays in Latin script in every language.
+ *
+ * Everywhere else in the app the name is translated - पोटली, பொட்லி, పొట్లి - and it should
+ * be. A shared message is the exception, because it is the one piece of text that reaches
+ * someone who does not have the app. They cannot type పొట్లి into a search box, and neither
+ * can the person they forward it to.
+ */
+const WORDMARK = 'Potli';
+
+/**
+ * The signature line: who this came from, and where to get it.
+ *
+ * `origin` is the address the app is actually being served from, passed in rather than
+ * configured, so it follows the app from a preview URL to a custom domain with nothing to
+ * update. It is omitted in contexts with no browser - a test, or a message built server
+ * side - where a half-formed link would be worse than none.
+ */
+export function signature(origin?: string): string {
+  const host = (origin ?? '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return host === '' ? `— ${WORDMARK}` : `— ${WORDMARK} · ${host}`;
+}
+
 function entryLine(entry: TransactionWithBalance, t: Translate): string {
   const { transaction } = entry;
   const sign = entry.deltaPaise > 0 ? '+' : '−';
@@ -50,6 +73,8 @@ export function buildContactShareText(
   entries: readonly TransactionWithBalance[],
   today: string,
   t: Translate,
+  /** Where the app is served from, for the link in the signature. */
+  origin?: string,
 ): string {
   const parts = [
     `*${describePersonBalance(person.name, balancePaise, t)}*`,
@@ -67,7 +92,7 @@ export function buildContactShareText(
     );
   }
 
-  parts.push('', `— ${t('app.name')}`);
+  parts.push('', signature(origin));
   return parts.join('\n');
 }
 
@@ -76,6 +101,8 @@ export function buildStatementShareText(
   statement: StatementSummary,
   personName: string | null,
   t: Translate,
+  /** Where the app is served from, for the link in the signature. */
+  origin?: string,
 ): string {
   const heading = personName
     ? t('statement.forPerson', { name: personName })
@@ -96,6 +123,6 @@ export function buildStatementShareText(
     parts.push('', ...entryLines([...statement.entries].reverse(), t));
   }
 
-  parts.push('', `— ${t('app.name')}`);
+  parts.push('', signature(origin));
   return parts.join('\n');
 }

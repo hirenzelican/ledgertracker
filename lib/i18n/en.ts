@@ -430,6 +430,21 @@ export const en = {
   /* ------------------------------------------------------------------------- badge */
   'settings.badge': 'Show a badge on the app icon',
   'settings.badgeHint': 'Counts people who owe you money, and entries waiting to be added.',
+
+  /* ------------------------------------------------------------------- account */
+  'settings.privacy': 'Privacy',
+  'account.delete': 'Delete my account',
+  'account.deleteHint': 'Removes everything, permanently.',
+  'account.deleteTitle': 'Delete your account',
+  'account.deleteBody':
+    'This removes {entries} and {people}, along with your repeating rules and your sign-in.',
+  'account.deleteForever': 'It cannot be undone, and nothing is kept.',
+  'account.backupFirst': 'Take a copy of your records first — this is the last chance.',
+  'account.typeToConfirm': 'Type {word} to confirm',
+  'account.deleteWord': 'DELETE',
+  'account.deleteConfirm': 'Delete for ever',
+  'account.deleteAlso': 'The sign-in for {email} will also be removed.',
+  'account.deleteFailed': 'Could not delete the account. Please try again.',
 } as const;
 
 /** Every key the interface can ask for. */

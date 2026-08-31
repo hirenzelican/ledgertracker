@@ -133,7 +133,8 @@ Open the Supabase SQL editor and run the migrations in order -
 [`20260826010000_two_way_tracking.sql`](supabase/migrations/20260826010000_two_way_tracking.sql),
 [`20260830000000_contact_details.sql`](supabase/migrations/20260830000000_contact_details.sql), then
 [`20260830010000_server_side_paging.sql`](supabase/migrations/20260830010000_server_side_paging.sql), then
-[`20260831000000_tags_recurring_trends.sql`](supabase/migrations/20260831000000_tags_recurring_trends.sql) -
+[`20260831000000_tags_recurring_trends.sql`](supabase/migrations/20260831000000_tags_recurring_trends.sql), then
+[`20260901000000_account_deletion.sql`](supabase/migrations/20260901000000_account_deletion.sql) -
 or apply them with the CLI:
 
 ```bash
@@ -554,6 +555,27 @@ really a loan, record it as *Lent* instead; if the amount is right, press *Save 
 have, produces a point in history where more money is returned than was ever received.
 Import into an empty ledger with *Replace everything* instead.
 
+## Privacy and account deletion
+
+[`/privacy`](app/privacy/page.tsx) is a plain statement of what the app stores, reachable
+without signing in - Google Play crawls that URL before listing, and a policy behind a
+login is no policy at all. It is deliberately a statement of fact about the code, so if
+what the app collects ever changes, that page is wrong until it changes too.
+
+Settings has **Delete my account**, which removes the entries, contacts, repeating rules
+and the sign-in itself. Deleting an auth user would normally need the service-role key, so
+instead it runs inside `delete_my_account()` - the one `SECURITY DEFINER` function in the
+schema, taking no arguments and keyed entirely to `auth.uid()`, so the only account it can
+ever remove is the caller's. `npm run verify:sql` proves that against a second user, and
+that `anon` cannot call it at all.
+
+The deletion is explicitly ordered - transactions, then repeating rules, then people, then
+the user - rather than relying on the cascade from `auth.users`, because
+`transactions.person_id` is `ON DELETE RESTRICT` and a cascade that reached `people` first
+would abort the whole thing. A delete-my-account button that sometimes fails is worse than
+none.
+
 ## Licence
 
-Private personal project. No warranty.
+Private personal project. No warranty. The app is free to use; the source is not
+published.
