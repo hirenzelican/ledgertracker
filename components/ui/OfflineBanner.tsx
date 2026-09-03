@@ -3,7 +3,13 @@
 import { useOnlineStatus } from '@/lib/hooks/useOnlineStatus';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 
-/** Persistent, unmissable indicator that writes will not go through right now. */
+/**
+ * Persistent, unmissable indicator that the app is working from what it has.
+ *
+ * It no longer says nothing can be saved, because that stopped being true: a new entry
+ * is kept on the device and sent later. What it is for now is explaining why the figures
+ * on screen may be behind, and why a change to an existing entry will be refused.
+ */
 export function OfflineBanner() {
   const online = useOnlineStatus();
   const { t } = useTranslation();

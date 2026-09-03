@@ -25,7 +25,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import { applyChangePaise, summariseStanding } from '@/lib/calculations/balance';
+import { applyChangePaise, signedDeltaPaise, summariseStanding } from '@/lib/calculations/balance';
 import {
   deletePerson as deletePersonRow,
   fetchPersonBalances,
@@ -38,8 +38,21 @@ import {
   insertTransaction,
   insertTransactionsBatch,
   deleteAllTransactions,
+  projectedRow,
   updateTransaction as updateTransactionRow,
 } from '@/lib/supabase/transactions';
+import { clearSnapshot, readSnapshot, writeSnapshot } from '@/lib/offline/snapshot';
+import {
+  dequeue,
+  enqueue,
+  isAlreadyWritten,
+  isOutboxSupported,
+  isQueued,
+  isRetryable,
+  newRowId,
+  readOutbox,
+  type QueuedEntry,
+} from '@/lib/offline/outbox';
 import { fetchTagCounts } from '@/lib/supabase/tags';
 import { toMessageKey } from '@/lib/supabase/errors';
 import { useTranslation } from './LanguageProvider';
@@ -128,6 +141,16 @@ interface LedgerContextValue {
   ) => number;
   /** That person's balance right now, in paise. Zero for someone unknown. */
   balanceFor: (personId: string) => number;
+  /**
+   * Entries saved without a connection and not yet sent, oldest first. They are already
+   * counted in every balance on screen - a save that does not move the figure it is
+   * about reads as a save that did not happen.
+   */
+  pending: QueuedEntry[];
+  /** True while the queue is being sent. */
+  sending: boolean;
+  /** Sends whatever is queued. Safe to call when there is nothing to send. */
+  flushOutbox: () => Promise<void>;
 }
 
 const LedgerContext = createContext<LedgerContextValue | null>(null);
@@ -187,8 +210,15 @@ function warnAboutConsequence(
 
 export function LedgerProvider({ children }: { children: ReactNode }) {
   const { status: authStatus, user } = useAuth();
+  const userId = user?.id ?? null;
   const { t } = useTranslation();
-  const [personBalances, setPersonBalances] = useState<PersonBalance[]>([]);
+  const [serverBalances, setServerBalances] = useState<PersonBalance[]>([]);
+  // Read inside `load` without making it a dependency: it only asks whether anything has
+  // been loaded yet, and depending on the balances would rebuild the loader on every
+  // change to them.
+  const serverBalancesRef = useRef<PersonBalance[]>([]);
+  const [pending, setPending] = useState<QueuedEntry[]>([]);
+  const [sending, setSending] = useState(false);
   const [tagCounts, setTagCounts] = useState<TagCount[]>([]);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -199,51 +229,136 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     const currentRequest = ++requestId.current;
     setStatus('loading');
     setLoadError(null);
+
+    // Shown before the request, not after it fails. A dead connection does not reject
+    // quickly - the client retries first - so waiting for the failure meant staring at a
+    // spinner for the better part of ten seconds before the app admitted it had the
+    // figures all along. Live results replace these the moment they arrive.
+    const cached = userId ? readSnapshot(userId) : null;
+    if (cached && serverBalancesRef.current.length === 0) {
+      setServerBalances(cached.balances);
+      setTagCounts(cached.tags);
+      setStatus('ready');
+    }
+
     try {
       // Both are small and independent, so they go together rather than in sequence.
       const [balances, tags] = await Promise.all([fetchPersonBalances(), fetchTagCounts()]);
       if (currentRequest !== requestId.current) return;
-      setPersonBalances(balances);
+      setServerBalances(balances);
       setTagCounts(tags);
       setStatus('ready');
+      if (userId) writeSnapshot(userId, balances, tags);
     } catch (error) {
       if (currentRequest !== requestId.current) return;
+
+      // The last known figures rather than an error screen. Opening the app with no
+      // signal has to leave you able to record something, and recording something means
+      // having the contact list - an empty picker behind an error message is the same as
+      // the app not working at all. The offline banner is on every screen already,
+      // saying why these figures may be behind.
+      if (cached) {
+        setServerBalances(cached.balances);
+        setTagCounts(cached.tags);
+        setStatus('ready');
+        return;
+      }
+
       setLoadError(t(toMessageKey(error, 'error.load')));
       setStatus('error');
     }
-  }, [t]);
+  }, [t, userId]);
 
   /** Re-reads the balances and tells every paged view its page is out of date. */
   const invalidate = useCallback(async () => {
     setVersion((current) => current + 1);
     try {
       const [balances, tags] = await Promise.all([fetchPersonBalances(), fetchTagCounts()]);
-      setPersonBalances(balances);
+      setServerBalances(balances);
       setTagCounts(tags);
+      if (userId) writeSnapshot(userId, balances, tags);
     } catch {
       // A failed refresh leaves the previous figures on screen, which is better than
       // blanking them. The next mutation or a pull-to-refresh will try again.
     }
-  }, []);
+  }, [userId]);
+
+  // Whatever is queued belongs in the figures before the first paint, or the balance
+  // jumps a moment after the screen settles.
+  useEffect(() => {
+    if (!user) {
+      setPending([]);
+      return;
+    }
+    void readOutbox(user.id).then(setPending);
+  }, [user]);
 
   useEffect(() => {
     if (authStatus === 'signed-in') {
       void load();
     } else if (authStatus === 'signed-out' || authStatus === 'unconfigured') {
       requestId.current++;
-      setPersonBalances([]);
+      clearSnapshot();
+      setServerBalances([]);
       setTagCounts([]);
       setStatus(authStatus === 'signed-out' ? 'ready' : 'error');
       setLoadError(authStatus === 'unconfigured' ? t('error.notConfigured') : null);
     }
   }, [authStatus, load, t]);
 
+  /**
+   * The balances the screens actually show: what the server has, plus what is still
+   * waiting to reach it.
+   *
+   * Folding these in is not a nicety. An entry saved with no signal that leaves every
+   * figure unmoved is indistinguishable from one that was dropped, and the user's next
+   * move is to type it again. Money in and out and the transaction count move with it,
+   * so nothing on screen disagrees with anything else while the queue drains.
+   */
+  const personBalances = useMemo((): PersonBalance[] => {
+    if (pending.length === 0) return serverBalances;
+
+    const byPerson = new Map(serverBalances.map((entry) => [entry.person.id, { ...entry }]));
+    for (const queued of pending) {
+      const entry = byPerson.get(queued.input.person_id);
+      // A queued entry for a contact the balances have not heard of is dropped from the
+      // figures rather than invented: the contact row is the server's to provide.
+      if (!entry) continue;
+      const delta = signedDeltaPaise(queued.input.type, queued.input.amountPaise);
+      entry.balancePaise += delta;
+      if (delta > 0) entry.moneyInPaise += delta;
+      else entry.moneyOutPaise += -delta;
+      entry.count += 1;
+      if (
+        entry.lastTransactionDate === null ||
+        queued.input.transaction_date > entry.lastTransactionDate
+      ) {
+        entry.lastTransactionDate = queued.input.transaction_date;
+      }
+    }
+
+    // Re-sorted on the same rule the server uses, so a queued entry that changes who you
+    // hold the most for moves that row now rather than on the next refresh.
+    return [...byPerson.values()].sort((a, b) => {
+      const weight = (value: number) => (value === 0 ? 1 : 0);
+      if (weight(a.balancePaise) !== weight(b.balancePaise)) {
+        return weight(a.balancePaise) - weight(b.balancePaise);
+      }
+      if (a.balancePaise !== b.balancePaise) return b.balancePaise - a.balancePaise;
+      return a.person.name.localeCompare(b.person.name);
+    });
+  }, [pending, serverBalances]);
+
+  useEffect(() => {
+    serverBalancesRef.current = serverBalances;
+  }, [serverBalances]);
+
   const people = useMemo(
     () =>
-      personBalances
+      serverBalances
         .map((entry) => entry.person)
         .sort((a, b) => a.name.localeCompare(b.name)),
-    [personBalances],
+    [serverBalances],
   );
 
   const balanceFor = useCallback(
@@ -294,7 +409,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       if (!user) return { ok: false, message: t('error.signInAgain') };
       try {
         const saved = await insertPerson(input, user.id);
-        setPersonBalances((current) => [
+        setServerBalances((current) => [
           ...current,
           {
             person: saved,
@@ -321,7 +436,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     async (id: string, input: PersonInput): Promise<PersonResult> => {
       try {
         const saved = await updatePersonRow(id, input);
-        setPersonBalances((current) =>
+        setServerBalances((current) =>
           current.map((entry) => (entry.person.id === id ? { ...entry, person: saved } : entry)),
         );
         return { ok: true, person: saved };
@@ -347,7 +462,7 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
       }
       try {
         await deletePersonRow(id);
-        setPersonBalances((current) => current.filter((balance) => balance.person.id !== id));
+        setServerBalances((current) => current.filter((balance) => balance.person.id !== id));
         return { ok: true as const };
       } catch (error) {
         return {
@@ -373,16 +488,82 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         return { ok: false, message: warning.message, overridable: warning.overridable };
       }
 
+      // Chosen here rather than by Postgres, so that if this write turns out to have
+      // landed after all, the retry from the queue collides instead of duplicating.
+      const identity = { id: newRowId(), createdAt: new Date().toISOString() };
+
+      const queueIt = async (): Promise<MutationResult> => {
+        const queued: QueuedEntry = {
+          id: identity.id,
+          userId: user.id,
+          input,
+          queuedAt: identity.createdAt,
+        };
+        if (!(await enqueue(queued))) {
+          return { ok: false, message: t(toMessageKey(null, 'error.save')) };
+        }
+        setPending((current) => [...current, queued]);
+        setVersion((current) => current + 1);
+        return { ok: true, transaction: projectedRow(input, user.id, identity) };
+      };
+
+      // No point asking a network that is not there. `navigator.onLine` is only a hint,
+      // but it is a reliable one in the direction that matters: when it says offline, it
+      // is, and the request would only fail slowly.
+      if (isOutboxSupported() && typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return queueIt();
+      }
+
       try {
-        const saved = await insertTransaction(input, user.id);
+        const saved = await insertTransaction(input, user.id, identity);
         await invalidate();
         return { ok: true, transaction: saved };
       } catch (error) {
+        // A server that answered has made a decision; only a missing answer is something
+        // a queue can fix. See `isRetryable`.
+        if (isOutboxSupported() && isRetryable(error)) return queueIt();
         return { ok: false, message: t(toMessageKey(error, 'error.save')) };
       }
     },
     [balanceFor, invalidate, people, t, user],
   );
+
+  /**
+   * Sends the queue, oldest first and one at a time.
+   *
+   * Order matters more than speed here: these are entries the user made in a sequence,
+   * and firing them off together would have them land in whatever order the requests
+   * happened to finish. One failure stops the run rather than skipping past it, so a
+   * connection that drops halfway leaves a queue that is still in order.
+   */
+  const flushOutbox = useCallback(async () => {
+    if (!user || sending) return;
+    const queue = await readOutbox(user.id);
+    if (queue.length === 0) return;
+
+    setSending(true);
+    let sent = 0;
+    try {
+      for (const queued of queue) {
+        try {
+          await insertTransaction(queued.input, user.id, {
+            id: queued.id,
+            createdAt: queued.queuedAt,
+          });
+        } catch (error) {
+          // The row is already there from an attempt whose answer went missing. That is
+          // this queue working, not failing.
+          if (!isAlreadyWritten(error)) break;
+        }
+        await dequeue(queued.id);
+        sent += 1;
+      }
+    } finally {
+      setPending(await readOutbox(user.id));
+      setSending(false);
+      if (sent > 0) await invalidate();
+    }
+  }, [invalidate, sending, user]);
 
   const editTransaction = useCallback(
     async (
@@ -409,6 +590,13 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
         return { ok: false, message: warning.message, overridable: warning.overridable };
       }
 
+      // Refused rather than queued, and said plainly. An edit queued for later would be
+      // replayed against a row that may have changed on another device in between, and
+      // there is no honest way to resolve that without having seen it.
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return { ok: false, message: t('error.offlineEdit') };
+      }
+
       try {
         const saved = await updateTransactionRow(previous.id, input);
         await invalidate();
@@ -420,8 +608,28 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [balanceFor, invalidate, people, t],
   );
 
+  // Sent on the way back, and once on arrival in case the app was closed mid-queue.
+  useEffect(() => {
+    if (authStatus !== 'signed-in') return;
+    void flushOutbox();
+    const onOnline = () => void flushOutbox();
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [authStatus, flushOutbox]);
+
   const removeTransaction = useCallback(
     async (id: string) => {
+      // Undo of an entry that never left the device. The server has never heard of it,
+      // so asking it to delete one would delete nothing and report success.
+      if (await isQueued(id)) {
+        await dequeue(id);
+        setPending((current) => current.filter((queued) => queued.id !== id));
+        setVersion((current) => current + 1);
+        return { ok: true } as const;
+      }
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+        return { ok: false as const, message: t('error.offlineEdit') };
+      }
       try {
         await deleteTransactionRow(id);
         await invalidate();
@@ -492,6 +700,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     () => ({
       people,
       personBalances,
+      pending,
+      sending,
+      flushOutbox,
       tagCounts,
       standing,
       totals,
@@ -512,6 +723,9 @@ export function LedgerProvider({ children }: { children: ReactNode }) {
     [
       people,
       personBalances,
+      pending,
+      sending,
+      flushOutbox,
       tagCounts,
       standing,
       totals,

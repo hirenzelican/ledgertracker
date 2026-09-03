@@ -251,9 +251,13 @@ export function TransactionForm({
         </div>
       ) : null}
 
+      {/* A new entry no longer needs a connection - it is queued and sent later - so the
+          warning became a note about what will happen. An edit still needs one: replaying
+          a change against a row whose current state you last saw an hour ago is a very
+          different problem from replaying an insert. */}
       {!online ? (
         <p className="rounded-xl bg-returned-soft px-4 py-3 text-sm text-ink">
-          {t('form.offline')}
+          {initial ? t('form.offlineEdit') : t('form.offlineQueued')}
         </p>
       ) : null}
 

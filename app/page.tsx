@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { AppBadge } from '@/components/layout/AppBadge';
 import { ConnectionCheck } from '@/components/layout/ConnectionCheck';
 import { DuePrompt } from '@/components/recurring/DuePrompt';
+import { PendingEntries } from '@/components/offline/PendingEntries';
 import { AuthGate } from '@/components/layout/AuthGate';
 import { BalanceCard } from '@/components/dashboard/BalanceCard';
 import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
@@ -109,6 +110,10 @@ function Dashboard() {
         {/* Above the balance on purpose: something is waiting to be recorded, and the
             balance below it is not yet the whole truth until it is. */}
         <DuePrompt />
+
+        {/* Also above it, for the opposite reason: the balance below already counts
+            these, and this is what says so. */}
+        <PendingEntries />
 
         <BalanceCard totals={totals} standing={standing} />
 

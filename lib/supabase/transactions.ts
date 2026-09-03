@@ -173,19 +173,50 @@ function toRow(input: TransactionInput) {
   };
 }
 
+/**
+ * Writes one transaction.
+ *
+ * `identity` lets the caller fix the row's id and creation time up front instead of
+ * letting Postgres choose them. That is what makes a retry safe: send the same insert
+ * twice and the second collides on the primary key rather than writing the entry again.
+ * The outbox depends on it, and online saves use it too so there is only one path to
+ * get right.
+ */
 export async function insertTransaction(
   input: TransactionInput,
   userId: string,
+  identity?: { id: string; createdAt: string },
 ): Promise<Transaction> {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
     .from(TABLE)
-    .insert({ ...toRow(input), user_id: userId })
+    .insert({
+      ...toRow(input),
+      user_id: userId,
+      ...(identity
+        ? { id: identity.id, created_at: identity.createdAt, updated_at: identity.createdAt }
+        : {}),
+    })
     .select(COLUMNS)
     .single();
 
   if (error) throw error;
   return data as Transaction;
+}
+
+/** The row as it will exist once written, for showing an entry that is still queued. */
+export function projectedRow(
+  input: TransactionInput,
+  userId: string,
+  identity: { id: string; createdAt: string },
+): Transaction {
+  return {
+    id: identity.id,
+    user_id: userId,
+    ...toRow(input),
+    created_at: identity.createdAt,
+    updated_at: identity.createdAt,
+  };
 }
 
 export async function updateTransaction(

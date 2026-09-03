@@ -62,6 +62,13 @@ export default function PrivacyPage() {
           Potli can check one without being able to read it back.
         </P>
         <P>
+          <B>A copy, on your device.</B> So that the app opens and works without a
+          connection, your browser keeps the last set of contacts and balances it saw,
+          plus any entry you have recorded that has not been sent yet. Both are on your
+          device only. Signing out clears the copy, and sending an entry removes it from
+          the queue.
+        </P>
+        <P>
           That is the complete list. There is no location data, no contact-book access, no
           device identifiers, no advertising identifier, and no behavioural tracking of any
           kind.
@@ -86,6 +93,14 @@ export default function PrivacyPage() {
           the sign-in service and process the data on our behalf. They are the only third
           party involved. The app itself is static files served by a hosting provider,
           which sees the request for those files but never your entries.
+        </P>
+
+        <H2>Working without a connection</H2>
+        <P>
+          An entry you record with no signal is kept on your device and sent the moment
+          you are back online — it is not lost, and it is not sent anywhere else in the
+          meantime. Until it is sent it is counted in the balances you see, and the app
+          says how many entries are waiting.
         </P>
 
         <H2>The screen lock</H2>

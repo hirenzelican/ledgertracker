@@ -25,6 +25,7 @@ import { QuickActions } from '@/components/dashboard/QuickActions';
 import { PersonSheet } from '@/components/contacts/PersonSheet';
 import { ShareButton } from '@/components/share/ShareButton';
 import { RemindButton } from '@/components/share/RemindButton';
+import { PendingEntries } from '@/components/offline/PendingEntries';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionActions } from '@/components/transactions/TransactionActions';
 import {
@@ -301,6 +302,8 @@ function Contacts() {
               }
             />
           </section>
+
+          <PendingEntries personId={person.id} />
 
           <ContactDetails person={person} />
 
