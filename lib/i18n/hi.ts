@@ -94,6 +94,8 @@ export const hi: Dictionary = {
   'person.balance.settled': '{name} से हिसाब बराबर है',
   'settle.title': 'हिसाब बराबर करें',
   'settle.button': 'हिसाब बराबर करें · {amount}',
+  'settle.short': 'बराबर',
+  'settle.buttonFor': '{name} से हिसाब बराबर करें · {amount}',
   'settle.save': 'हिसाब बराबर करें',
   'settle.introHolding':
     '{name} के {amount} जो आपके पास हैं, वापस दे रहे हैं। अगर सिर्फ कुछ हिस्सा वापस जा रहा है तो रकम बदल लें।',

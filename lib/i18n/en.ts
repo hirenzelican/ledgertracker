@@ -101,6 +101,8 @@ export const en = {
   'person.balance.settled': 'Settled up with {name}',
   'settle.title': 'Settle up',
   'settle.button': 'Settle up · {amount}',
+  'settle.short': 'Settle',
+  'settle.buttonFor': 'Settle up with {name} · {amount}',
   'settle.save': 'SETTLE UP',
   'settle.introHolding':
     'Giving {name} back the {amount} of theirs you are holding. Change the amount if only part of it is going back.',

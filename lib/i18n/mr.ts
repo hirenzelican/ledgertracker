@@ -93,6 +93,8 @@ export const mr: Dictionary = {
   'person.balance.settled': '{name} यांच्याशी हिशोब पूर्ण आहे',
   'settle.title': 'हिशोब पूर्ण करा',
   'settle.button': 'हिशोब पूर्ण करा · {amount}',
+  'settle.short': 'पूर्ण',
+  'settle.buttonFor': '{name} यांच्याशी हिशोब पूर्ण करा · {amount}',
   'settle.save': 'हिशोब पूर्ण करा',
   'settle.introHolding':
     '{name} यांचे {amount} तुमच्याकडे आहेत, ते परत देत आहात. फक्त काही भाग परत जात असेल तर रक्कम बदला.',

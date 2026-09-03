@@ -93,6 +93,8 @@ export const bn: Dictionary = {
   'person.balance.settled': '{name}-এর সঙ্গে হিসাব মিটেছে',
   'settle.title': 'হিসাব মিটিয়ে দিন',
   'settle.button': 'হিসাব মিটিয়ে দিন · {amount}',
+  'settle.short': 'মেটান',
+  'settle.buttonFor': '{name}-এর সঙ্গে হিসাব মিটিয়ে দিন · {amount}',
   'settle.save': 'হিসাব মিটিয়ে দিন',
   'settle.introHolding':
     '{name}-এর যে {amount} আপনার কাছে আছে, তা ফেরত দিচ্ছেন। শুধু কিছুটা ফেরত গেলে টাকার অঙ্ক বদলে নিন।',

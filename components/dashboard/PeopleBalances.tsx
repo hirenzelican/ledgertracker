@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { formatRupees } from '@/lib/calculations/money';
 import { cn } from '@/lib/cn';
 import { formatRelativeDate } from '@/lib/format/date';
+import { settleMode, type SettleMode } from '@/components/transactions/TransactionSheet';
 import type { PersonBalance } from '@/types/transaction';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 
@@ -15,15 +16,25 @@ interface PeopleBalancesProps {
   balances: readonly PersonBalance[];
   /** When given, rows call this instead of navigating - used inside the contacts screen. */
   onSelect?: (personId: string) => void;
+  /**
+   * When given, a row with something outstanding grows a chip that settles it without
+   * opening the contact first. Left off, the list is exactly as it was.
+   */
+  onSettle?: (settle: SettleMode) => void;
 }
 
-export function PeopleBalances({ balances, onSelect }: PeopleBalancesProps) {
+export function PeopleBalances({ balances, onSelect, onSettle }: PeopleBalancesProps) {
   const { t } = useTranslation();
 
   return (
     <ul className="divide-y divide-border">
-      {balances.map(({ person, balancePaise, count, lastTransactionDate }) => (
-        <li key={person.id}>
+      {balances.map(({ person, balancePaise, count, lastTransactionDate }) => {
+        // Same call the contact screen makes, so the chip appears on exactly the rows
+        // that have something to settle and carries exactly the figures that screen
+        // would have offered.
+        const settle = onSettle ? settleMode(person.id, balancePaise) : null;
+        return (
+        <li key={person.id} className="flex items-center">
           <Row personId={person.id} onSelect={onSelect}>
             <span
               aria-hidden="true"
@@ -63,8 +74,26 @@ export function PeopleBalances({ balances, onSelect }: PeopleBalancesProps) {
               </span>
             </span>
           </Row>
+
+          {settle ? (
+            <button
+              type="button"
+              onClick={() => onSettle?.(settle)}
+              // The visible word is short enough to sit beside a name on a phone; the
+              // label a screen reader announces says which person and how much, since
+              // "Settle" repeated down a list of forty rows identifies nobody.
+              aria-label={t('settle.buttonFor', {
+                name: person.name,
+                amount: formatRupees(settle.amountPaise),
+              })}
+              className="mr-3 flex min-h-[44px] shrink-0 items-center rounded-full border border-brand px-3.5 text-sm font-semibold text-brand transition active:scale-[0.97]"
+            >
+              {t('settle.short')}
+            </button>
+          ) : null}
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
@@ -82,8 +111,9 @@ function Row({
   onSelect?: (personId: string) => void;
   children: React.ReactNode;
 }) {
+  // min-w-0 so a long name truncates rather than pushing the settle chip off the row.
   const className =
-    'flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-sunken';
+    'flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-sunken';
 
   if (onSelect) {
     return (

@@ -93,6 +93,8 @@ export const ta: Dictionary = {
   'person.balance.settled': '{name} உடன் கணக்கு முடிந்தது',
   'settle.title': 'கணக்கு முடிக்கவும்',
   'settle.button': 'கணக்கு முடிக்கவும் · {amount}',
+  'settle.short': 'முடிக்க',
+  'settle.buttonFor': '{name} உடன் கணக்கு முடிக்கவும் · {amount}',
   'settle.save': 'கணக்கு முடிக்கவும்',
   'settle.introHolding':
     '{name} அவர்களின் {amount} உங்களிடம் உள்ளது, அதைத் திருப்பித் தருகிறீர்கள். ஒரு பகுதி மட்டும் திரும்பினால் தொகையை மாற்றவும்.',

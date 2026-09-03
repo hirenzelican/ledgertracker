@@ -94,6 +94,8 @@ export const gu: Dictionary = {
   'person.balance.settled': '{name} સાથે હિસાબ પૂરો છે',
   'settle.title': 'હિસાબ પૂરો કરો',
   'settle.button': 'હિસાબ પૂરો કરો · {amount}',
+  'settle.short': 'પૂરો',
+  'settle.buttonFor': '{name} સાથે હિસાબ પૂરો કરો · {amount}',
   'settle.save': 'હિસાબ પૂરો કરો',
   'settle.introHolding':
     '{name}ના {amount} તમારી પાસે છે, તે પાછા આપી રહ્યા છો. જો થોડો જ ભાગ પાછો જતો હોય તો રકમ બદલો.',

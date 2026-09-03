@@ -403,7 +403,7 @@ function Contacts() {
               </Card>
             ) : (
               <div className="card overflow-hidden p-0">
-                <PeopleBalances balances={visible} onSelect={openContact} />
+                <PeopleBalances balances={visible} onSelect={openContact} onSettle={setSheet} />
               </div>
             )}
 
@@ -424,6 +424,8 @@ function Contacts() {
       </div>
 
       <Fab label={t('contacts.add')} onClick={() => setEditing('new')} />
+      {/* Settling from a row happens here, without opening the contact first. */}
+      <TransactionSheet mode={sheet} onClose={() => setSheet(null)} />
       {sheets}
     </AppShell>
   );

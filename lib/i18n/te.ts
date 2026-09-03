@@ -93,6 +93,8 @@ export const te: Dictionary = {
   'person.balance.settled': '{name}తో లెక్క తీరింది',
   'settle.title': 'లెక్క తీర్చండి',
   'settle.button': 'లెక్క తీర్చండి · {amount}',
+  'settle.short': 'తీర్చు',
+  'settle.buttonFor': '{name}తో లెక్క తీర్చండి · {amount}',
   'settle.save': 'లెక్క తీర్చండి',
   'settle.introHolding':
     '{name} వాళ్ల {amount} మీ దగ్గర ఉంది, దాన్ని తిరిగి ఇస్తున్నారు. కొంత భాగం మాత్రమే ఇస్తుంటే మొత్తాన్ని మార్చండి.',
