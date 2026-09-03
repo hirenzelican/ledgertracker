@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { LedgerProvider } from '@/components/providers/LedgerProvider';
+import { PinProvider } from '@/components/providers/PinProvider';
 import { RecurringProvider } from '@/components/providers/RecurringProvider';
 import { LanguageProvider } from '@/components/providers/LanguageProvider';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -56,6 +57,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <LanguageProvider>
             <ToastProvider>
               <AuthProvider>
+                {/* Outside the ledger: the lock is about the session, not the data, and
+                    a locked screen should not stop what is already in flight. */}
+                <PinProvider>
                 <LedgerProvider>
                   {/* Inside the ledger, because posting a due entry has to reload it. */}
                   <RecurringProvider>
@@ -65,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     <ServiceWorkerRegistrar />
                   </RecurringProvider>
                 </LedgerProvider>
+                </PinProvider>
               </AuthProvider>
             </ToastProvider>
           </LanguageProvider>

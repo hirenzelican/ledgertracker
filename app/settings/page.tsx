@@ -9,6 +9,7 @@ import { Card, SectionHeading } from '@/components/ui/Card';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { ImportBackup } from '@/components/settings/ImportBackup';
 import { DeleteAccount } from '@/components/settings/DeleteAccount';
+import { PinSettings } from '@/components/settings/PinSettings';
 import { useAuth } from '@/components/providers/AuthProvider';
 import { fetchAllTransactions, useLedger } from '@/components/providers/LedgerProvider';
 import { badgeEnabled, badgingSupported, setBadgeEnabled } from '@/components/layout/AppBadge';
@@ -124,6 +125,10 @@ function Settings() {
             <Button variant="secondary" size="lg" className="w-full" onClick={() => setConfirmSignOut(true)}>
               {t('settings.logout')}
             </Button>
+
+            <div className="border-t border-border pt-4">
+              <PinSettings />
+            </div>
 
             {/* Last in the section and visually quieter than logging out: it is the one
                 action here that cannot be undone by signing back in. */}

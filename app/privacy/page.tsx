@@ -19,7 +19,7 @@ export const metadata = {
   description: 'What Potli stores, who can see it, and how to take it back or delete it.',
 };
 
-const UPDATED = '31 August 2026';
+const UPDATED = '3 September 2026';
 
 export default function PrivacyPage() {
   return (
@@ -36,6 +36,7 @@ export default function PrivacyPage() {
         <h2 className="text-base font-semibold text-ink">The short version</h2>
         <ul className="mt-3 space-y-2 text-[15px] leading-relaxed text-ink-muted">
           <li>Potli stores your email address and the money entries you type in. Nothing else.</li>
+          <li>An optional PIN can lock the screen. It stays on your device and never reaches us.</li>
           <li>Only you can read them. Your entries are invisible to other users and to us.</li>
           <li>There is no advertising, no analytics, and nothing is sold or shared.</li>
           <li>You can export everything, or delete your account entirely, from Settings.</li>
@@ -56,7 +57,9 @@ export default function PrivacyPage() {
         </P>
         <P>
           <B>Your settings.</B> Your chosen language and theme are kept in your own
-          browser, not on the server.
+          browser, not on the server. If you switch on the screen lock, the same place
+          holds a scrambled form of your PIN — never the digits themselves — so that
+          Potli can check one without being able to read it back.
         </P>
         <P>
           That is the complete list. There is no location data, no contact-book access, no
@@ -83,6 +86,21 @@ export default function PrivacyPage() {
           the sign-in service and process the data on our behalf. They are the only third
           party involved. The app itself is static files served by a hosting provider,
           which sees the request for those files but never your entries.
+        </P>
+
+        <H2>The screen lock</H2>
+        <P>
+          Settings can ask for a four-digit PIN before showing your entries. It is worth
+          being clear about what that is: it keeps the screen private on a phone other
+          people pick up. It is <B>not</B> encryption, and it is not what protects your
+          data — that is your sign-in and the database rule above. Someone with your
+          unlocked, signed-in phone can still reach your entries; four digits stored on
+          the same device cannot honestly change that.
+        </P>
+        <P>
+          The PIN never leaves your device and is never sent to us. If you forget it,
+          sign out and sign back in: nothing is lost, because your entries are on the
+          server rather than behind the lock.
         </P>
 
         <H2>Sharing a summary</H2>
