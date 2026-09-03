@@ -12,7 +12,7 @@ import { TagField } from './TagField';
 import { PersonPicker } from './PersonPicker';
 import { Button } from '@/components/ui/Button';
 import { parseAmountInput, stripTrailingPaise } from '@/lib/calculations/money';
-import { describePersonBalance } from '@/lib/calculations/balance';
+import { describePersonBalance, signedDeltaPaise } from '@/lib/calculations/balance';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { todayIso } from '@/lib/format/date';
 import {
@@ -38,6 +38,19 @@ export interface TransactionFormProps {
   type: TransactionType;
   /** Preselected person, e.g. when recording from a person's own screen. */
   initialPersonId?: string;
+  /** Pre-filled amount as the user would type it, e.g. an offered settlement. */
+  initialAmount?: string;
+  /**
+   * Replaces the type's caption at the top of the form. Used when the form was opened
+   * for a specific purpose that the type alone does not explain, such as settling up.
+   */
+  intro?: string;
+  /**
+   * Fixes the person, showing their name instead of the picker. Settling is derived
+   * from one person's balance, so letting the picker move it to someone else would
+   * apply their figures to the wrong pot.
+   */
+  lockedPersonName?: string;
   /** Balance available for the chosen person, in paise, keyed by person id. */
   balanceForPerson: (personId: string) => number;
   allowTypeChange?: boolean;
@@ -55,6 +68,9 @@ export function TransactionForm({
   allowTypeChange = false,
   initial,
   initialPersonId,
+  initialAmount,
+  intro,
+  lockedPersonName,
   submitLabel,
   balanceForPerson,
   onSubmit,
@@ -66,7 +82,7 @@ export function TransactionForm({
   const [type, setType] = useState<TransactionType>(initial?.type ?? initialType);
   const [personId, setPersonId] = useState(initial?.person_id ?? initialPersonId ?? '');
   const [amount, setAmount] = useState(() =>
-    initial ? stripTrailingPaise(initial.amount) : '',
+    initial ? stripTrailingPaise(initial.amount) : (initialAmount ?? ''),
   );
   const [method, setMethod] = useState<PaymentMethod>(initial?.method ?? 'GOOGLE_PAY');
   const [date, setDate] = useState(initial?.transaction_date ?? todayIso());
@@ -81,12 +97,14 @@ export function TransactionForm({
   const amountPaise = parseAmountInput(amount);
   const availableBalancePaise = personId === '' ? 0 : balanceForPerson(personId);
 
-  /** Live preview so the user sees the consequence before committing. */
+  /**
+   * Live preview so the user sees the consequence before committing. The direction comes
+   * from the same table the saved balance uses, so the preview cannot disagree with the
+   * figure that appears a second later.
+   */
   const projectedBalancePaise = useMemo(() => {
     if (amountPaise === null) return availableBalancePaise;
-    return type === 'RECEIVED'
-      ? availableBalancePaise + amountPaise
-      : availableBalancePaise - amountPaise;
+    return availableBalancePaise + signedDeltaPaise(type, amountPaise);
   }, [amountPaise, availableBalancePaise, type]);
 
   const submit = async (force: boolean) => {
@@ -133,17 +151,26 @@ export function TransactionForm({
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5">
       <p className="rounded-xl bg-surface-sunken px-4 py-2.5 text-sm text-ink-muted">
-        {t(`type.${type}.caption`)}
+        {intro ?? t(`type.${type}.caption`)}
       </p>
 
-      <PersonPicker value={personId} onChange={setPersonId} error={errors.person} />
+      {lockedPersonName === undefined ? (
+        <PersonPicker value={personId} onChange={setPersonId} error={errors.person} />
+      ) : (
+        <div>
+          <p className="field-label">{t('form.whose')}</p>
+          <p className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-[15px] font-medium text-ink">
+            {lockedPersonName}
+          </p>
+        </div>
+      )}
 
       <AmountField
         label={t('form.amount')}
         value={amount}
         onChange={setAmount}
         error={errors.amount}
-        autoFocus={!initial}
+        autoFocus={!initial && initialAmount === undefined}
         hint={
           amountPaise !== null && amountPaise > 0 && personId !== ''
             ? t('form.amountAfter', {

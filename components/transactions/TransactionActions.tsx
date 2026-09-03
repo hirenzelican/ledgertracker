@@ -13,7 +13,7 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import type { Person } from '@/types/transaction';
 import { useToast } from '@/components/providers/ToastProvider';
-import { formatRupees, amountToPaise } from '@/lib/calculations/money';
+import { formatRupees, formatSignedRupees, amountToPaise } from '@/lib/calculations/money';
 import { describePersonBalance } from '@/lib/calculations/balance';
 import type { Translate } from '@/lib/i18n/locales';
 import { formatDisplayDate } from '@/lib/format/date';
@@ -71,7 +71,7 @@ export function TransactionActions({ entry, onClose, onEdit }: TransactionAction
           <Detail term={t('entry.person')}>{personLabel(people, transaction.person_id, t)}</Detail>
           <Detail term={t('entry.amount')}>
             <span className="tnum font-semibold">
-              {transaction.type === 'RECEIVED' ? '+' : '−'} {formatRupees(amountPaise)}
+              {formatSignedRupees(amountPaise, transaction.type)}
             </span>
           </Detail>
           <Detail term={t('entry.what')}>{t(`type.${transaction.type}.action`)}</Detail>

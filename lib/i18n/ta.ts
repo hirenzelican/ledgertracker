@@ -91,6 +91,13 @@ export const ta: Dictionary = {
   'person.balance.holding': '{name} அவர்களுக்காக {amount} உங்களிடம் உள்ளது',
   'person.balance.owed': '{name} உங்களுக்கு {amount} தர வேண்டும்',
   'person.balance.settled': '{name} உடன் கணக்கு முடிந்தது',
+  'settle.title': 'கணக்கு முடிக்கவும்',
+  'settle.button': 'கணக்கு முடிக்கவும் · {amount}',
+  'settle.save': 'கணக்கு முடிக்கவும்',
+  'settle.introHolding':
+    '{name} அவர்களின் {amount} உங்களிடம் உள்ளது, அதைத் திருப்பித் தருகிறீர்கள். ஒரு பகுதி மட்டும் திரும்பினால் தொகையை மாற்றவும்.',
+  'settle.introOwed':
+    '{name} உங்கள் {amount} திருப்பித் தருகிறார்கள். ஒரு பகுதி மட்டும் வந்திருந்தால் தொகையை மாற்றவும்.',
 
   'form.whose': 'இது யாருடைய பணம்?',
   'form.kind': 'எந்தப் பக்கம்?',

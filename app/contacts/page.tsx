@@ -26,7 +26,11 @@ import { PersonSheet } from '@/components/contacts/PersonSheet';
 import { ShareButton } from '@/components/share/ShareButton';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionActions } from '@/components/transactions/TransactionActions';
-import { TransactionSheet, type SheetMode } from '@/components/transactions/TransactionSheet';
+import {
+  TransactionSheet,
+  settleMode,
+  type SheetMode,
+} from '@/components/transactions/TransactionSheet';
 import { ContactDetails } from '@/components/contacts/ContactDetails';
 import { useLedger } from '@/components/providers/LedgerProvider';
 import { useLedgerPage, DEFAULT_PAGE_SIZE } from '@/components/providers/useLedgerPage';
@@ -187,6 +191,10 @@ function Contacts() {
 
     const { person, balancePaise, moneyInPaise, moneyOutPaise, count } = selected;
 
+    // Null when they are square with you, which is also when the button below is not
+    // drawn: one call decides both, so the offer and the form always agree.
+    const settle = settleMode(person.id, balancePaise);
+
     return (
       <AppShell
         title={person.name}
@@ -236,6 +244,20 @@ function Contacts() {
                 </dd>
               </div>
             </dl>
+
+            {/* The whole reason this screen exists, for most visits: they have handed
+                the money back and the balance should now be zero. Doing that by hand
+                means picking between "I gave back" and "they paid back" - the two that
+                are easiest to confuse and that move the balance opposite ways. */}
+            {settle ? (
+              <Button
+                size="lg"
+                className="mt-4 w-full"
+                onClick={() => setSheet(settle)}
+              >
+                {t('settle.button', { amount: formatRupees(settle.amountPaise) })}
+              </Button>
+            ) : null}
 
             <ShareButton
               className="mt-4 w-full"

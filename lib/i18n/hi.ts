@@ -92,6 +92,13 @@ export const hi: Dictionary = {
   'person.balance.holding': '{name} के {amount} आपके पास हैं',
   'person.balance.owed': '{name} को आपको {amount} देने हैं',
   'person.balance.settled': '{name} से हिसाब बराबर है',
+  'settle.title': 'हिसाब बराबर करें',
+  'settle.button': 'हिसाब बराबर करें · {amount}',
+  'settle.save': 'हिसाब बराबर करें',
+  'settle.introHolding':
+    '{name} के {amount} जो आपके पास हैं, वापस दे रहे हैं। अगर सिर्फ कुछ हिस्सा वापस जा रहा है तो रकम बदल लें।',
+  'settle.introOwed':
+    '{name} आपके {amount} वापस कर रहे हैं। अगर सिर्फ कुछ हिस्सा वापस आया है तो रकम बदल लें।',
 
   'form.whose': 'ये किसके पैसे हैं?',
   'form.kind': 'किस तरफ़?',

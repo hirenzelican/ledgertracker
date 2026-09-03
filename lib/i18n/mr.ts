@@ -91,6 +91,13 @@ export const mr: Dictionary = {
   'person.balance.holding': '{name} यांचे {amount} तुमच्याकडे आहेत',
   'person.balance.owed': '{name} यांच्याकडून तुम्हाला {amount} येणे आहेत',
   'person.balance.settled': '{name} यांच्याशी हिशोब पूर्ण आहे',
+  'settle.title': 'हिशोब पूर्ण करा',
+  'settle.button': 'हिशोब पूर्ण करा · {amount}',
+  'settle.save': 'हिशोब पूर्ण करा',
+  'settle.introHolding':
+    '{name} यांचे {amount} तुमच्याकडे आहेत, ते परत देत आहात. फक्त काही भाग परत जात असेल तर रक्कम बदला.',
+  'settle.introOwed':
+    '{name} तुमचे {amount} परत करत आहेत. फक्त काही भाग परत आला असेल तर रक्कम बदला.',
 
   'form.whose': 'हे कोणाचे पैसे आहेत?',
   'form.kind': 'कोणत्या दिशेने?',

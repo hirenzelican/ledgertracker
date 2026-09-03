@@ -7,6 +7,8 @@
  * arithmetic, so `0.1 + 0.2` style rounding drift cannot reach the ledger.
  */
 
+import { TYPE_DIRECTION, type TransactionType } from '@/types/transaction';
+
 /** Largest amount the app accepts: NUMERIC(12,2) tops out below 10^10 rupees. */
 export const MAX_AMOUNT_PAISE = 9_999_999_999_99; // ₹99,99,99,999.99
 
@@ -91,9 +93,14 @@ export function formatRupees(paise: number, options: { alwaysShowPaise?: boolean
   return `${negative ? '-' : ''}₹${formatted}`;
 }
 
-/** Formats paise with an explicit `+` / `−` sign, for transaction rows. */
-export function formatSignedRupees(paise: number, type: 'RECEIVED' | 'RETURNED'): string {
-  return `${type === 'RECEIVED' ? '+' : '−'} ${formatRupees(Math.abs(paise))}`;
+/**
+ * Formats paise with an explicit `+` / `−` sign, for transaction rows.
+ *
+ * The sign comes from `TYPE_DIRECTION` rather than from a comparison against one type:
+ * two of the four raise the balance, and writing the test by hand gets REPAID wrong.
+ */
+export function formatSignedRupees(paise: number, type: TransactionType): string {
+  return `${TYPE_DIRECTION[type] === 1 ? '+' : '−'} ${formatRupees(Math.abs(paise))}`;
 }
 
 /**

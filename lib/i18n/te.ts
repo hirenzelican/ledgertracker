@@ -91,6 +91,13 @@ export const te: Dictionary = {
   'person.balance.holding': '{name} కోసం {amount} మీ దగ్గర ఉంది',
   'person.balance.owed': '{name} మీకు {amount} ఇవ్వాలి',
   'person.balance.settled': '{name}తో లెక్క తీరింది',
+  'settle.title': 'లెక్క తీర్చండి',
+  'settle.button': 'లెక్క తీర్చండి · {amount}',
+  'settle.save': 'లెక్క తీర్చండి',
+  'settle.introHolding':
+    '{name} వాళ్ల {amount} మీ దగ్గర ఉంది, దాన్ని తిరిగి ఇస్తున్నారు. కొంత భాగం మాత్రమే ఇస్తుంటే మొత్తాన్ని మార్చండి.',
+  'settle.introOwed':
+    '{name} మీ {amount} తిరిగి ఇస్తున్నారు. కొంత భాగం మాత్రమే వచ్చినట్టయితే మొత్తాన్ని మార్చండి.',
 
   'form.whose': 'ఇది ఎవరి డబ్బు?',
   'form.kind': 'ఏ వైపు?',

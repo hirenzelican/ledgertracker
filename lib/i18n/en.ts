@@ -99,6 +99,13 @@ export const en = {
   'person.balance.holding': 'Holding {amount} for {name}',
   'person.balance.owed': '{name} owes you {amount}',
   'person.balance.settled': 'Settled up with {name}',
+  'settle.title': 'Settle up',
+  'settle.button': 'Settle up · {amount}',
+  'settle.save': 'SETTLE UP',
+  'settle.introHolding':
+    'Giving {name} back the {amount} of theirs you are holding. Change the amount if only part of it is going back.',
+  'settle.introOwed':
+    '{name} is paying back the {amount} they owe you. Change the amount if only part of it has come back.',
 
   'form.whose': 'Whose money is this?',
   'form.kind': 'Which way?',

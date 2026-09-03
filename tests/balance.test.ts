@@ -9,9 +9,11 @@ import {
   summariseStanding,
   forPerson,
   projectedBalancePaise,
+  applyChangePaise,
+  settlementFor,
   sortChronological,
 } from '@/lib/calculations/balance';
-import { formatRupees } from '@/lib/calculations/money';
+import { formatRupees, formatSignedRupees } from '@/lib/calculations/money';
 import { makePerson, makeTransaction, t } from './helpers';
 
 /** The worked example from the specification. */
@@ -339,4 +341,76 @@ test('running balances are each person, not a total across everyone', () => {
     running.map((entry) => entry.balanceAfterPaise),
     [1_000_000, 400_000, 800_000, -500_000],
   );
+});
+
+/* ------------------------------------------------------------------- settling up */
+
+test('settling money you are holding gives it back; settling a loan is repaid', () => {
+  // Holding ₹1,500 of theirs: the way to zero is me returning it.
+  assert.deepEqual(settlementFor(150_000), { type: 'RETURNED', amountPaise: 150_000 });
+  // They owe me ₹1,500: the way to zero is them paying it back. This is the pair people
+  // get the wrong way round by hand, which is the whole reason the app picks.
+  assert.deepEqual(settlementFor(-150_000), { type: 'REPAID', amountPaise: 150_000 });
+});
+
+test('there is nothing to settle when the balance is already zero', () => {
+  assert.equal(settlementFor(0), null);
+});
+
+test('the offered settlement lands exactly on zero, from either side', () => {
+  for (const balancePaise of [150_000, -150_000, 1, -1, 99, 12_345_67]) {
+    const settlement = settlementFor(balancePaise);
+    assert.notEqual(settlement, null);
+    assert.equal(
+      applyChangePaise(balancePaise, { include: settlement! }),
+      0,
+      `settling ${balancePaise} should reach zero`,
+    );
+  }
+});
+
+test('settling the uncle scenario: lend, then settle, and the balance is clear', () => {
+  const uncle = makePerson('Uncle', 'OTHER', 'p-uncle');
+  const lent = makeTransaction({
+    personId: uncle.id,
+    date: '2026-08-26',
+    type: 'LENT',
+    amount: '1500.00',
+    note: 'Train ticket',
+  });
+
+  const [before] = calculatePersonBalances([uncle], [lent]);
+  assert.equal(before!.balancePaise, -150_000);
+  assert.equal(describePersonBalance(uncle.name, before!.balancePaise, t), 'Uncle owes you ₹1,500');
+
+  const settlement = settlementFor(before!.balancePaise)!;
+  const settled = makeTransaction({
+    personId: uncle.id,
+    date: '2026-09-03',
+    type: settlement.type,
+    amount: '1500.00',
+    method: 'CASH',
+  });
+
+  const [after] = calculatePersonBalances([uncle], [lent, settled]);
+  assert.equal(after!.balancePaise, 0);
+  assert.equal(describePersonBalance(uncle.name, after!.balancePaise, t), 'Settled up with Uncle');
+});
+
+test('a part settlement leaves the rest outstanding, still owed the same way', () => {
+  // ₹1,000 of the ₹1,500 comes back: still owed ₹500, and the next settlement offers it.
+  const remaining = applyChangePaise(-150_000, {
+    include: { type: 'REPAID', amountPaise: 100_000 },
+  });
+  assert.equal(remaining, -50_000);
+  assert.deepEqual(settlementFor(remaining), { type: 'REPAID', amountPaise: 50_000 });
+});
+
+test('the sign shown on an entry follows the direction, not one named type', () => {
+  // REPAID raises the balance exactly as RECEIVED does; it used to be printed as a
+  // deduction, which is the same slip settling a loan would have made visible.
+  assert.equal(formatSignedRupees(150_000, 'RECEIVED'), '+ ₹1,500');
+  assert.equal(formatSignedRupees(150_000, 'REPAID'), '+ ₹1,500');
+  assert.equal(formatSignedRupees(150_000, 'RETURNED'), '− ₹1,500');
+  assert.equal(formatSignedRupees(150_000, 'LENT'), '− ₹1,500');
 });

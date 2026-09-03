@@ -92,6 +92,13 @@ export const gu: Dictionary = {
   'person.balance.holding': '{name}ના {amount} તમારી પાસે છે',
   'person.balance.owed': '{name}એ તમને {amount} આપવાના છે',
   'person.balance.settled': '{name} સાથે હિસાબ પૂરો છે',
+  'settle.title': 'હિસાબ પૂરો કરો',
+  'settle.button': 'હિસાબ પૂરો કરો · {amount}',
+  'settle.save': 'હિસાબ પૂરો કરો',
+  'settle.introHolding':
+    '{name}ના {amount} તમારી પાસે છે, તે પાછા આપી રહ્યા છો. જો થોડો જ ભાગ પાછો જતો હોય તો રકમ બદલો.',
+  'settle.introOwed':
+    '{name} તમારા {amount} પાછા આપી રહ્યા છે. જો થોડો જ ભાગ પાછો આવ્યો હોય તો રકમ બદલો.',
 
   'form.whose': 'આ કોના પૈસા છે?',
   'form.kind': 'કઈ બાજુ?',

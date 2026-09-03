@@ -151,6 +151,30 @@ export function describePersonBalance(name: string, balancePaise: number, t: Tra
   return t('person.balance.settled', { name });
 }
 
+/**
+ * The entry that would bring someone's balance to zero, or null when there is nothing
+ * outstanding.
+ *
+ * The direction follows from the sign of the balance and from nothing else, which is the
+ * whole point of having this here. A positive balance is their money sitting with me, so
+ * settling it is me giving it back (RETURNED). A negative one is my money sitting with
+ * them, so settling it is them paying it back (REPAID). Choosing between those two by
+ * hand is the step people get wrong: "they gave it back" reads like RETURNED, which is
+ * the opposite entry and moves the balance the wrong way.
+ *
+ * The amount is the full outstanding balance. A partial settlement is the same entry
+ * with a smaller number, so the caller offers this as a starting point rather than a
+ * fixed quantity.
+ */
+export function settlementFor(
+  balancePaise: number,
+): { type: TransactionType; amountPaise: number } | null {
+  if (balancePaise === 0) return null;
+  return balancePaise > 0
+    ? { type: 'RETURNED', amountPaise: balancePaise }
+    : { type: 'REPAID', amountPaise: -balancePaise };
+}
+
 export interface Standing {
   /** Total of other people's money currently in my hands. */
   holdingPaise: number;
