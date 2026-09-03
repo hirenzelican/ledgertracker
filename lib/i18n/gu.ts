@@ -102,6 +102,12 @@ export const gu: Dictionary = {
   'settle.introOwed':
     '{name} તમારા {amount} પાછા આપી રહ્યા છે. જો થોડો જ ભાગ પાછો આવ્યો હોય તો રકમ બદલો.',
 
+  'remind.action': 'WhatsApp પર યાદ કરાવો',
+  'remind.greeting': 'નમસ્તે {name},',
+  'remind.body': 'એક નાની યાદ — {amount} હજુ બાકી છે.',
+  'remind.since': '{date} થી બાકી છે.',
+  'remind.closing': 'તમને અનુકૂળ હોય ત્યારે, કોઈ ઉતાવળ નથી.',
+
   'form.whose': 'આ કોના પૈસા છે?',
   'form.kind': 'કઈ બાજુ?',
   'form.amount': 'રકમ',

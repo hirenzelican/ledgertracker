@@ -101,6 +101,12 @@ export const te: Dictionary = {
   'settle.introOwed':
     '{name} మీ {amount} తిరిగి ఇస్తున్నారు. కొంత భాగం మాత్రమే వచ్చినట్టయితే మొత్తాన్ని మార్చండి.',
 
+  'remind.action': 'WhatsAppలో గుర్తు చేయండి',
+  'remind.greeting': 'నమస్కారం {name},',
+  'remind.body': 'ఒక చిన్న గుర్తు — {amount} ఇంకా బాకీ ఉంది.',
+  'remind.since': '{date} నుండి బాకీ ఉంది.',
+  'remind.closing': 'మీకు వీలైనప్పుడు, ఎలాంటి తొందర లేదు.',
+
   'form.whose': 'ఇది ఎవరి డబ్బు?',
   'form.kind': 'ఏ వైపు?',
   'form.amount': 'మొత్తం',

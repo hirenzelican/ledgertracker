@@ -102,6 +102,12 @@ export const hi: Dictionary = {
   'settle.introOwed':
     '{name} आपके {amount} वापस कर रहे हैं। अगर सिर्फ कुछ हिस्सा वापस आया है तो रकम बदल लें।',
 
+  'remind.action': 'WhatsApp पर याद दिलाएँ',
+  'remind.greeting': 'नमस्ते {name},',
+  'remind.body': 'बस एक छोटी सी याद — {amount} अभी बाकी हैं।',
+  'remind.since': '{date} से बाकी हैं।',
+  'remind.closing': 'जब आपको सुविधा हो, कोई जल्दी नहीं।',
+
   'form.whose': 'ये किसके पैसे हैं?',
   'form.kind': 'किस तरफ़?',
   'form.amount': 'रकम',

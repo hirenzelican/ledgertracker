@@ -11,9 +11,11 @@ import {
   projectedBalancePaise,
   applyChangePaise,
   settlementFor,
+  outstandingSince,
   sortChronological,
 } from '@/lib/calculations/balance';
 import { formatRupees, formatSignedRupees } from '@/lib/calculations/money';
+import { buildReminderText } from '@/lib/export/share';
 import { makePerson, makeTransaction, t } from './helpers';
 
 /** The worked example from the specification. */
@@ -413,4 +415,110 @@ test('the sign shown on an entry follows the direction, not one named type', () 
   assert.equal(formatSignedRupees(150_000, 'REPAID'), '+ ₹1,500');
   assert.equal(formatSignedRupees(150_000, 'RETURNED'), '− ₹1,500');
   assert.equal(formatSignedRupees(150_000, 'LENT'), '− ₹1,500');
+});
+
+/* --------------------------------------------------------------- outstanding since */
+
+/** The screens hold history newest first; these helpers match that. */
+function newestFirst(transactions: readonly Transaction[]) {
+  return buildRunningBalances(transactions).reverse();
+}
+
+/**
+ * The newest `size` rows of a ledger, as a page. Running balances are computed over the
+ * whole ledger first, exactly as `transaction_ledger` does - a page whose balances were
+ * recomputed from its own rows would be a page that cannot happen.
+ */
+function pageOf(transactions: readonly Transaction[], size: number) {
+  return newestFirst(transactions).slice(0, size);
+}
+
+test('outstanding since is the entry after the last time you were square', () => {
+  // Square on 5 Aug, then lent again: the debt dates from the 10th, not the 1st.
+  const entries = newestFirst([
+    makeTransaction({ date: '2026-08-01', type: 'LENT', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-05', type: 'REPAID', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-10', type: 'LENT', amount: '1500.00' }),
+  ]);
+  assert.equal(outstandingSince(entries, { complete: true }), '2026-08-10');
+});
+
+test('a balance that never returned to zero dates from the very first entry', () => {
+  const entries = newestFirst([
+    makeTransaction({ date: '2026-08-01', type: 'LENT', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-10', type: 'LENT', amount: '500.00' }),
+  ]);
+  assert.equal(outstandingSince(entries, { complete: true }), '2026-08-01');
+});
+
+test('a partial repayment does not restart the clock', () => {
+  // ₹500 of ₹1,500 came back, so the balance never reached zero: still since the 1st.
+  const entries = newestFirst([
+    makeTransaction({ date: '2026-08-01', type: 'LENT', amount: '1500.00' }),
+    makeTransaction({ date: '2026-08-20', type: 'REPAID', amount: '500.00' }),
+  ]);
+  assert.equal(outstandingSince(entries, { complete: true }), '2026-08-01');
+});
+
+test('crossing zero from the other direction also restarts it', () => {
+  // Held ₹2,000 of theirs, gave it all back, then lent ₹800 of your own.
+  const entries = newestFirst([
+    makeTransaction({ date: '2026-08-01', type: 'RECEIVED', amount: '2000.00' }),
+    makeTransaction({ date: '2026-08-04', type: 'RETURNED', amount: '2000.00' }),
+    makeTransaction({ date: '2026-08-09', type: 'LENT', amount: '800.00' }),
+  ]);
+  assert.equal(outstandingSince(entries, { complete: true }), '2026-08-09');
+});
+
+test('an unproven date is left out rather than guessed', () => {
+  const ledger = [
+    makeTransaction({ date: '2026-08-01', type: 'LENT', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-10', type: 'LENT', amount: '500.00' }),
+    makeTransaction({ date: '2026-08-20', type: 'LENT', amount: '500.00' }),
+  ];
+  // Only the newest two were fetched, they never reach zero, and the row that would
+  // answer the question was left on the server. Saying "since 10 Aug" here would be
+  // nine days late.
+  assert.equal(outstandingSince(pageOf(ledger, 2), { complete: false }), null);
+  // With the whole history in hand, the answer is the first entry.
+  assert.equal(outstandingSince(pageOf(ledger, 3), { complete: true }), '2026-08-01');
+});
+
+test('a page that reaches back past the last zero is answerable even when incomplete', () => {
+  const ledger = [
+    makeTransaction({ date: '2026-08-01', type: 'LENT', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-05', type: 'REPAID', amount: '1000.00' }),
+    makeTransaction({ date: '2026-08-10', type: 'LENT', amount: '1500.00' }),
+  ];
+  // The page includes the moment they were square, so nothing older can matter.
+  assert.equal(outstandingSince(pageOf(ledger, 2), { complete: false }), '2026-08-10');
+});
+
+test('nothing loaded means nothing to say', () => {
+  assert.equal(outstandingSince([], { complete: true }), null);
+});
+
+/* ------------------------------------------------------------------- the reminder */
+
+test('the reminder names the amount and the date, and stays short', () => {
+  const uncle = makePerson('Uncle', 'OTHER', 'p-uncle');
+  const text = buildReminderText(uncle, 150_000, '2026-08-26', t, 'https://potli.example');
+  const lines = text.split('\n').filter((line) => line !== '');
+
+  assert.equal(lines[0], 'Hi Uncle,');
+  assert.match(text, /\*₹1,500\*/);
+  assert.match(text, /26 Aug 2026/);
+  assert.match(text, /no rush/);
+  assert.match(text, /Potli · potli\.example/);
+  // A nudge, not a statement: the full ledger has its own button.
+  assert.ok(lines.length <= 5, `${lines.length} lines: ${JSON.stringify(lines)}`);
+});
+
+test('the reminder simply omits the date when it is not known', () => {
+  const uncle = makePerson('Uncle', 'OTHER', 'p-uncle');
+  const text = buildReminderText(uncle, 150_000, null, t);
+  assert.match(text, /\*₹1,500\*/);
+  assert.doesNotMatch(text, /since/i);
+  // No origin, so no half-formed link.
+  assert.match(text, /— Potli$/);
 });

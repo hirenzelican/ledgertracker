@@ -101,6 +101,12 @@ export const bn: Dictionary = {
   'settle.introOwed':
     '{name} আপনার {amount} ফেরত দিচ্ছেন। শুধু কিছুটা ফেরত এলে টাকার অঙ্ক বদলে নিন।',
 
+  'remind.action': 'WhatsApp-এ মনে করিয়ে দিন',
+  'remind.greeting': 'নমস্কার {name},',
+  'remind.body': 'একটু মনে করিয়ে দিচ্ছি — {amount} এখনও বাকি আছে।',
+  'remind.since': '{date} থেকে বাকি আছে।',
+  'remind.closing': 'আপনার যখন সুবিধা হয়, কোনও তাড়া নেই।',
+
   'form.whose': 'এটা কার টাকা?',
   'form.kind': 'কোন দিকে?',
   'form.amount': 'টাকার অঙ্ক',

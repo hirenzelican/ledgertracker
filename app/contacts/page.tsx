@@ -24,6 +24,7 @@ import { PeopleBalances } from '@/components/dashboard/PeopleBalances';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { PersonSheet } from '@/components/contacts/PersonSheet';
 import { ShareButton } from '@/components/share/ShareButton';
+import { RemindButton } from '@/components/share/RemindButton';
 import { TransactionList } from '@/components/transactions/TransactionList';
 import { TransactionActions } from '@/components/transactions/TransactionActions';
 import {
@@ -36,8 +37,9 @@ import { useLedger } from '@/components/providers/LedgerProvider';
 import { useLedgerPage, DEFAULT_PAGE_SIZE } from '@/components/providers/useLedgerPage';
 import { useTranslation } from '@/components/providers/LanguageProvider';
 import { useToast } from '@/components/providers/ToastProvider';
-import { describePersonBalance } from '@/lib/calculations/balance';
-import { buildContactShareText } from '@/lib/export/share';
+import { describePersonBalance, outstandingSince } from '@/lib/calculations/balance';
+import { buildContactShareText, buildReminderText } from '@/lib/export/share';
+import { whatsappNumber } from '@/lib/validation/person';
 import { todayIso } from '@/lib/format/date';
 import { formatRupees } from '@/lib/calculations/money';
 import type { Person, PersonInput, TransactionType, TransactionWithBalance } from '@/types/transaction';
@@ -195,6 +197,12 @@ function Contacts() {
     // drawn: one call decides both, so the offer and the form always agree.
     const settle = settleMode(person.id, balancePaise);
 
+    // Reminding only makes sense in one direction and only when there is somewhere to
+    // send it. Money you are holding for someone is not a debt to chase, and a contact
+    // with no number has no chat to open.
+    const whatsapp = whatsappNumber(person.phone);
+    const canRemind = balancePaise < 0 && whatsapp !== '';
+
     return (
       <AppShell
         title={person.name}
@@ -259,8 +267,26 @@ function Contacts() {
               </Button>
             ) : null}
 
+            {canRemind ? (
+              <RemindButton
+                className="mt-3 w-full"
+                whatsapp={whatsapp}
+                buildText={() =>
+                  buildReminderText(
+                    person,
+                    -balancePaise,
+                    // Exact when the loaded page reaches back far enough to prove it,
+                    // and left out rather than guessed when it does not.
+                    outstandingSince(history.entries, { complete: !history.hasMore }),
+                    t,
+                    window.location.origin,
+                  )
+                }
+              />
+            ) : null}
+
             <ShareButton
-              className="mt-4 w-full"
+              className="mt-3 w-full"
               buildText={() =>
                 buildContactShareText(
                   person,

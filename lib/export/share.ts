@@ -96,6 +96,39 @@ export function buildContactShareText(
   return parts.join('\n');
 }
 
+/**
+ * A short nudge to someone who owes you money.
+ *
+ * Deliberately not a statement. The full ledger already has its own button; this one
+ * exists for the moment you want to say "still outstanding" without composing the
+ * awkward sentence yourself, and a wall of line items undercuts that. Amount, since
+ * when, and a closing that takes the edge off - the rest is on request.
+ *
+ * `since` is omitted rather than guessed when the loaded history cannot prove it; see
+ * `outstandingSince`.
+ */
+export function buildReminderText(
+  person: Person,
+  owedPaise: number,
+  since: string | null,
+  t: Translate,
+  /** Where the app is served from, for the link in the signature. */
+  origin?: string,
+): string {
+  const parts = [
+    t('remind.greeting', { name: person.name }),
+    '',
+    t('remind.body', { amount: `*${formatRupees(owedPaise)}*` }),
+  ];
+
+  if (since !== null) {
+    parts.push(t('remind.since', { date: formatDisplayDate(since, t) }));
+  }
+
+  parts.push('', t('remind.closing'), '', signature(origin));
+  return parts.join('\n');
+}
+
 /** A statement for a date range, for one person or for everyone. */
 export function buildStatementShareText(
   statement: StatementSummary,

@@ -101,6 +101,12 @@ export const ta: Dictionary = {
   'settle.introOwed':
     '{name} உங்கள் {amount} திருப்பித் தருகிறார்கள். ஒரு பகுதி மட்டும் வந்திருந்தால் தொகையை மாற்றவும்.',
 
+  'remind.action': 'WhatsApp-இல் நினைவூட்டவும்',
+  'remind.greeting': 'வணக்கம் {name},',
+  'remind.body': 'ஒரு சிறிய நினைவூட்டல் — {amount} இன்னும் நிலுவையில் உள்ளது.',
+  'remind.since': '{date} முதல் நிலுவையில் உள்ளது.',
+  'remind.closing': 'உங்களுக்கு வசதியான போது, அவசரம் ஒன்றும் இல்லை.',
+
   'form.whose': 'இது யாருடைய பணம்?',
   'form.kind': 'எந்தப் பக்கம்?',
   'form.amount': 'தொகை',

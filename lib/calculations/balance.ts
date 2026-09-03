@@ -175,6 +175,42 @@ export function settlementFor(
     : { type: 'REPAID', amountPaise: -balancePaise };
 }
 
+/**
+ * The date a balance last left zero and never came back - what a reminder means by
+ * "outstanding since".
+ *
+ * Walks the loaded entries newest-first. Each one carries the balance *after* it, so the
+ * balance before it is that figure minus its own delta; the first time that comes out at
+ * zero is the most recent moment the two of you were square, and the entry sitting on it
+ * is where the current debt begins.
+ *
+ * Returns null when the loaded rows cannot prove an answer: the balance was still
+ * non-zero at the oldest row *and* older rows exist that were never fetched. History is
+ * paged, so that case is real, and a reminder carrying a date that is silently too late
+ * is worse than one carrying no date at all.
+ */
+export function outstandingSince(
+  /** Newest first, as the screens hold them. */
+  entries: readonly TransactionWithBalance[],
+  options: { complete: boolean },
+): string | null {
+  if (entries.length === 0) return null;
+
+  // The oldest loaded row is skipped on purpose. Its running balance came from the whole
+  // ledger, but whether anything sits before it is precisely what a page cannot say, so
+  // it is settled by `complete` below rather than by arithmetic here.
+  for (const entry of entries.slice(0, -1)) {
+    if (entry.balanceAfterPaise - entry.deltaPaise === 0) {
+      return entry.transaction.transaction_date;
+    }
+  }
+
+  // Never square within what was loaded. If these are all the rows there are, the debt
+  // has stood since the very first one; if they are not, the true start may be older
+  // than anything in hand.
+  return options.complete ? entries[entries.length - 1]!.transaction.transaction_date : null;
+}
+
 export interface Standing {
   /** Total of other people's money currently in my hands. */
   holdingPaise: number;

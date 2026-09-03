@@ -109,6 +109,12 @@ export const en = {
   'settle.introOwed':
     '{name} is paying back the {amount} they owe you. Change the amount if only part of it has come back.',
 
+  'remind.action': 'Remind on WhatsApp',
+  'remind.greeting': 'Hi {name},',
+  'remind.body': 'Just a gentle reminder — {amount} is still outstanding.',
+  'remind.since': 'Outstanding since {date}.',
+  'remind.closing': 'Whenever it suits you, no rush at all.',
+
   'form.whose': 'Whose money is this?',
   'form.kind': 'Which way?',
   'form.amount': 'Amount',
