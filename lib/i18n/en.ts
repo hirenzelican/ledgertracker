@@ -336,6 +336,8 @@ export const en = {
   'common.close': 'Close',
   'common.tryAgain': 'Try again',
   'common.loading': 'Loading...',
+  'common.undo': 'Undo',
+  'common.undone': 'Undone.',
   'common.working': 'Working...',
   'common.offline': 'Offline - nothing can be saved right now.',
   'common.dismiss': 'Dismiss notification',

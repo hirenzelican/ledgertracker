@@ -8,6 +8,7 @@
 import { Sheet } from '@/components/ui/Sheet';
 import { TransactionForm } from '@/components/forms/TransactionForm';
 import { useLedger } from '@/components/providers/LedgerProvider';
+import { toTransactionInput } from '@/lib/calculations/transaction';
 import { useToast } from '@/components/providers/ToastProvider';
 import {
   amountToPaise,
@@ -54,7 +55,8 @@ interface TransactionSheetProps {
 export type { SheetMode as TransactionSheetMode };
 
 export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
-  const { addTransaction, editTransaction, balanceIfApplied, people } = useLedger();
+  const { addTransaction, editTransaction, removeTransaction, balanceIfApplied, people } =
+    useLedger();
   const { showToast } = useToast();
   const { t } = useTranslation();
 
@@ -128,10 +130,40 @@ export function TransactionSheet({ mode, onClose }: TransactionSheetProps) {
         newBalancePaise,
         t,
       ),
+      // The last moment you still remember what you meant to type. Without this, a
+      // mistyped amount costs finding the row, opening it, deleting it and confirming.
+      action: undoFor(previous, result.transaction),
     });
     onClose();
     return { ok: true };
   };
+
+  /**
+   * How to put things back, or nothing when there is nothing to put back.
+   *
+   * A new entry is undone by deleting the row that was just written; an edit, by writing
+   * the old values over the new ones. Both go through with `allowUnusual`, because the
+   * state being restored is one the ledger was already in - being warned about a balance
+   * you are on your way back out of would be the app arguing with itself.
+   */
+  function undoFor(before: Transaction | null, saved?: Transaction) {
+    if (!saved) return undefined;
+    const label = t('common.undo');
+
+    const restore = async () => {
+      const outcome = before
+        ? await editTransaction(saved, toTransactionInput(before), { allowUnusual: true })
+        : await removeTransaction(saved.id);
+
+      showToast(
+        outcome.ok
+          ? { tone: 'info', title: t('common.undone') }
+          : { tone: 'error', title: outcome.message ?? t('form.error.generic') },
+      );
+    };
+
+    return { label, onAction: restore };
+  }
 
   return (
     <Sheet open title={title} onClose={onClose}>

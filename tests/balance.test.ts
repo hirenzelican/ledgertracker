@@ -16,7 +16,9 @@ import {
 } from '@/lib/calculations/balance';
 import { formatRupees, formatSignedRupees } from '@/lib/calculations/money';
 import { buildReminderText } from '@/lib/export/share';
+import { toTransactionInput } from '@/lib/calculations/transaction';
 import { makePerson, makeTransaction, t } from './helpers';
+import type { Transaction } from '@/types/transaction';
 
 /** The worked example from the specification. */
 const LEDGER = [
@@ -521,4 +523,55 @@ test('the reminder simply omits the date when it is not known', () => {
   assert.doesNotMatch(text, /since/i);
   // No origin, so no half-formed link.
   assert.match(text, /— Potli$/);
+});
+
+/* ------------------------------------------------------- putting a row back as input */
+
+test('a stored row converts back into exactly the input that would produce it', () => {
+  // Undo of an edit writes the old values over the new ones, so anything this drops is
+  // silently lost the moment someone taps Undo.
+  const row = makeTransaction({
+    date: '2026-08-26',
+    type: 'LENT',
+    amount: '1500.50',
+    method: 'CASH',
+    note: 'Train ticket',
+    tags: ['travel', 'family'],
+  });
+
+  assert.deepEqual(toTransactionInput(row), {
+    person_id: row.person_id,
+    transaction_date: '2026-08-26',
+    type: 'LENT',
+    amountPaise: 150_050,
+    method: 'CASH',
+    note: 'Train ticket',
+    tags: ['travel', 'family'],
+  });
+});
+
+test('a row with no note round-trips as an empty one, not as null', () => {
+  // The column holds null; the form holds ''. Handing null to the form would put the
+  // string "null" in the note field on the next edit.
+  const row = makeTransaction({ date: '2026-08-01', type: 'RECEIVED', amount: '100.00' });
+  assert.equal(row.note, null);
+  assert.equal(toTransactionInput(row).note, '');
+});
+
+test('undoing an edit restores the balance the ledger had before it', () => {
+  const person = makePerson('Ravi', 'BROTHER', 'p-ravi');
+  const before = makeTransaction({
+    personId: person.id,
+    date: '2026-08-10',
+    type: 'LENT',
+    amount: '1500.00',
+  });
+  // Fat-fingered into ₹15,000, then undone.
+  const mistyped = { ...before, amount: '15000.00' };
+  const restored = { ...mistyped, ...toTransactionInput(before), amount: before.amount };
+
+  const wrong = calculatePersonBalances([person], [mistyped])[0]!.balancePaise;
+  const right = calculatePersonBalances([person], [restored])[0]!.balancePaise;
+  assert.equal(wrong, -1_500_000);
+  assert.equal(right, -150_000);
 });

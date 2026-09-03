@@ -323,6 +323,8 @@ export const mr: Dictionary = {
   'common.close': 'बंद करा',
   'common.tryAgain': 'पुन्हा प्रयत्न करा',
   'common.loading': 'लोड होत आहे...',
+  'common.undo': 'रद्द करा',
+  'common.undone': 'रद्द केले.',
   'common.working': 'सुरू आहे...',
   'common.offline': 'ऑफलाइन - आत्ता काही सेव्ह होणार नाही.',
   'common.dismiss': 'सूचना काढा',

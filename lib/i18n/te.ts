@@ -328,6 +328,8 @@ export const te: Dictionary = {
   'common.close': 'మూసివేయి',
   'common.tryAgain': 'మళ్ళీ ప్రయత్నించు',
   'common.loading': 'లోడ్ అవుతోంది...',
+  'common.undo': 'రద్దు చేయి',
+  'common.undone': 'రద్దు చేయబడింది.',
   'common.working': 'పని జరుగుతోంది...',
   'common.offline': 'ఆఫ్‌లైన్ - ఇప్పుడు ఏదీ సేవ్ చేయలేం.',
   'common.dismiss': 'నోటిఫికేషన్ తీసివేయి',

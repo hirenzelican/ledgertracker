@@ -328,6 +328,8 @@ export const ta: Dictionary = {
   'common.close': 'மூடு',
   'common.tryAgain': 'மீண்டும் முயற்சி',
   'common.loading': 'ஏற்றப்படுகிறது...',
+  'common.undo': 'திரும்பப் பெறு',
+  'common.undone': 'திரும்பப் பெறப்பட்டது.',
   'common.working': 'வேலை நடக்கிறது...',
   'common.offline': 'ஆஃப்லைன் - இப்போது எதையும் சேமிக்க முடியாது.',
   'common.dismiss': 'அறிவிப்பை நீக்கு',

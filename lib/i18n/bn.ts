@@ -325,6 +325,8 @@ export const bn: Dictionary = {
   'common.close': 'বন্ধ করুন',
   'common.tryAgain': 'আবার চেষ্টা করুন',
   'common.loading': 'আসছে...',
+  'common.undo': 'ফিরিয়ে নিন',
+  'common.undone': 'ফিরিয়ে নেওয়া হয়েছে।',
   'common.working': 'চলছে...',
   'common.offline': 'অফলাইন - এখন কিছু সেভ হবে না।',
   'common.dismiss': 'বিজ্ঞপ্তি সরান',

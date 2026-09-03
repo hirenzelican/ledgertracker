@@ -59,6 +59,21 @@ export function Toaster() {
                 <p className="mt-0.5 text-sm text-ink-muted">{toast.description}</p>
               ) : null}
             </div>
+            {toast.action ? (
+              // Dismissed on the way out, so a second tap cannot fire it twice. Whatever
+              // the action does will announce itself in a toast of its own.
+              <button
+                type="button"
+                onClick={() => {
+                  dismissToast(toast.id);
+                  void toast.action?.onAction();
+                }}
+                className="-my-1 shrink-0 self-center rounded-full px-3 py-2 text-sm font-bold uppercase tracking-wide text-brand hover:bg-black/5"
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
+
             <button
               type="button"
               onClick={() => dismissToast(toast.id)}

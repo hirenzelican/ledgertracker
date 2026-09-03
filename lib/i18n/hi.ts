@@ -329,6 +329,8 @@ export const hi: Dictionary = {
   'common.close': 'बंद करें',
   'common.tryAgain': 'फिर कोशिश करें',
   'common.loading': 'लोड हो रहा है...',
+  'common.undo': 'वापस लें',
+  'common.undone': 'वापस ले लिया।',
   'common.working': 'हो रहा है...',
   'common.offline': 'ऑफ़लाइन - अभी कुछ सेव नहीं हो सकता।',
   'common.dismiss': 'सूचना हटाएँ',

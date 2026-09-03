@@ -329,6 +329,8 @@ export const gu: Dictionary = {
   'common.close': 'બંધ કરો',
   'common.tryAgain': 'ફરી પ્રયત્ન કરો',
   'common.loading': 'લોડ થાય છે...',
+  'common.undo': 'પાછું લો',
+  'common.undone': 'પાછું લીધું.',
   'common.working': 'ચાલુ છે...',
   'common.offline': 'ઑફલાઇન - હમણાં કંઈ સેવ નહીં થાય.',
   'common.dismiss': 'સૂચના કાઢો',
